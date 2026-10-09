@@ -38,3 +38,18 @@ def test_id_and_download():
 def test_stats():
     r = client.get('/api/v1/stats')
     assert r.status_code == 200 and r.json()['total'] == 220
+
+
+def test_studio_and_embed_script():
+    home = client.get('/')
+    assert home.status_code == 200
+    assert 'text/html' in home.headers['content-type']
+    assert 'Selecione um produto' in home.text
+    assert 'Copiar código para minha LP' in home.text
+    widget = client.get('/widget.js')
+    assert widget.status_code == 200
+    assert 'javascript' in widget.headers['content-type']
+    assert 'DahuerComments' in widget.text
+    assert 'data-target' not in widget.text or 'dataset.target' in widget.text
+    api = client.get('/api')
+    assert api.status_code == 200 and api.json()['total_avaliacoes'] == 220
