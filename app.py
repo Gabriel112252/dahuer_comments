@@ -13,18 +13,28 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, Response
+from contextlib import asynccontextmanager
+
+import media_store
 
 SITE_DIR = Path(__file__).parent / 'site'
 DATA_DIR = Path(os.environ.get('DAHUER_DATA_DIR', Path(__file__).parent / 'data'))
 CSV_FILES = ('hidrabene_shopee.csv', 'hidrabene_mercadolivre.csv', 'hidrabene_tiktok.csv', 'hidrabene_amazon.csv')
 FIELDS = ('canal', 'produto', 'nota', 'data', 'autor', 'texto', 'variacao', 'tem_foto_ou_video', 'link', 'midia_links', 'midia_arquivos')
 
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    media_store.start_auto_sync()
+    yield
+
+
 app = FastAPI(
+    lifespan=lifespan,
     title='Dahuer Comments API',
-    description='Consulta pública e exportação de avaliações de produtos, com links para as fontes originais. Os arquivos de mídia não são hospedados nesta API.',
+    description='Consulta e exportação de avaliações. Mídias compatíveis são espelhadas no próprio domínio e armazenadas em volume persistente.',
     version='1.0.0',
     license_info={'name': 'Código MIT; os dados e mídias de terceiros mantêm seus direitos originais.'},
 )
@@ -66,6 +76,28 @@ def read_comments() -> list[dict[str, Any]]:
                 comment['arquivos_midia_referenciados'] = split_media(comment['midia_arquivos'])
                 data.append(comment)
     return data
+
+
+def request_origin(request: Request) -> str:
+    return (os.getenv("DAHUER_PUBLIC_BASE_URL") or str(request.base_url)).rstrip("/")
+
+
+def public_comment(comment: dict[str, Any], origin: str) -> dict[str, Any]:
+    item = dict(comment)
+    original = comment["midia_links"]
+    local_urls, not_direct = media_store.local_links(original, origin)
+    item["midia_links_originais"] = original
+    item["midias_originais"] = split_media(original)
+    item["midias"] = local_urls
+    item["midia_links"] = " | ".join(local_urls)
+    item["midias_nao_hospedadas"] = not_direct
+    item["midias_info"] = [
+        {"url": origin + "/media/" + media_store.media_key(source),
+         "tipo": media_store.media_kind(source)}
+        for source in split_media(original)
+        if media_store.media_key(source) in media_store.manifest()
+    ]
+    return item
 
 
 def filter_comments(
@@ -115,6 +147,7 @@ def healthz():
 
 @app.get('/api/v1/comments', tags=['Avaliações'])
 def comments(
+    request: Request,
     canal: str | None = Query(None, description='Ex.: Shopee, Mercado Livre, TikTok, Amazon'),
     produto: str | None = Query(None, description='Ex.: Protetor, Kit Clareador'),
     nota: int | None = Query(None, ge=1, le=5),
@@ -126,12 +159,14 @@ def comments(
     filtered = filter_comments(canal, produto, nota, q, com_midia)
     offset = (page - 1) * per_page
     return {'total': len(filtered), 'page': page, 'per_page': per_page,
-            'total_pages': math.ceil(len(filtered) / per_page), 'data': filtered[offset:offset + per_page]}
+            'total_pages': math.ceil(len(filtered) / per_page),
+            'data': [public_comment(c, request_origin(request)) for c in filtered[offset:offset + per_page]]}
 
 
 @app.get('/api/v1/comments/{comment_id}', tags=['Avaliações'])
-def comment_by_id(comment_id: str):
-    return next((c for c in read_comments() if c['id'] == comment_id), None) or _not_found()
+def comment_by_id(comment_id: str, request: Request):
+    result = next((c for c in read_comments() if c['id'] == comment_id), None)
+    return public_comment(result, request_origin(request)) if result else _not_found()
 
 
 def _not_found():
@@ -148,6 +183,31 @@ def products():
     return [{'produto': produto, 'total': total} for produto, total in sorted(Counter(x['produto'] for x in read_comments()).items())]
 
 
+@app.get('/api/v1/media/status', tags=['Mídias'])
+def media_status():
+    return media_store.status()
+
+
+@app.get('/media/{media_id}', tags=['Mídias'])
+def hosted_media(media_id: str):
+    if media_id not in media_store.manifest():
+        raise HTTPException(status_code=404, detail="Mídia não encontrada")
+    if not media_store.ensure_downloaded(media_id):
+        raise HTTPException(
+            status_code=503,
+            detail="Mídia ainda não disponível no armazenamento local",
+            headers={"Retry-After": "120", "Cache-Control": "no-store"},
+        )
+    mime = media_store.content_type(media_id)
+    if mime is None:
+        raise HTTPException(status_code=503, detail="Formato local indisponível")
+    return FileResponse(
+        media_store.file_path(media_id), media_type=mime,
+        headers={"Cache-Control": "public, max-age=31536000, immutable",
+                 "X-Content-Type-Options": "nosniff"},
+    )
+
+
 @app.get('/api/v1/stats', tags=['Catálogo'])
 def stats():
     data = read_comments()
@@ -160,13 +220,14 @@ def stats():
 
 @app.get('/api/v1/download', tags=['Exportação'])
 def download(
+    request: Request,
     formato: str = Query('csv', pattern='^(csv|json)$'),
     canal: str | None = None,
     produto: str | None = None,
     nota: int | None = Query(None, ge=1, le=5),
     q: str | None = Query(None, max_length=200),
 ):
-    data = filter_comments(canal, produto, nota, q)
+    data = [public_comment(c, request_origin(request)) for c in filter_comments(canal, produto, nota, q)]
     if formato == 'json':
         return Response(
             content=json.dumps(data, ensure_ascii=False),
