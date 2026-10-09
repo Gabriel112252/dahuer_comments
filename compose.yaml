@@ -7,6 +7,7 @@ services:
     environment:
       PYTHONUNBUFFERED: "1"
       DAHUER_MEDIA_DIR: "/app/media"
+      DAHUER_PUBLIC_BASE_URL: "https://workspace-dahuer-comments.yu7gwy.easypanel.host"
       DAHUER_MEDIA_AUTO_SYNC: "true"
       DAHUER_MAX_IMAGE_MB: "8"
       DAHUER_MAX_VIDEO_MB: "48"
