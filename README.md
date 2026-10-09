@@ -18,6 +18,36 @@ API REST **pública, gratuita e somente leitura** para consultar e exportar aval
 
 > **Hospedagem:** a API está disponível no Easypanel no endereço acima. O GitHub continua oferecendo o código e os CSVs; um repositório sozinho não executa o servidor.
 
+## Mídias hospedadas em domínio próprio (Easypanel)
+
+A API agora transforma as URLs diretas de fotos e vídeos dos marketplaces em **links próprios**:
+\`https://workspace-dahuer-comments.yu7gwy.easypanel.host/media/<id>\`
+
+- A importação começa **automaticamente em segundo plano após o deploy**, primeiro imagens, depois vídeos.
+- O endpoint \`GET /api/v1/media/status\` indica quantos arquivos estão baixados, pendentes e com falha.
+- \`midias\`, \`midias_info\` e \`midia_links\` na API/JSON/CSV de download usam nossos links. Os valores antigos são preservados em \`midias_originais\`/\`midia_links_originais\` no JSON.
+- O widget utiliza nossos links e exibe imagens e vídeos com controles de reprodução.
+- O endpoint \`GET /media/<id>\` também pode buscar um arquivo no primeiro acesso, com limites de tamanho e origem. Se um original estiver indisponível, retorna \`503\` em vez de redirecionar para o marketplace.
+- Foram encontradas **423 referências**, sendo **369 URLs diretas compatíveis para tentativa de importação**. Outras **54 URLs do TikTok são páginas de vídeos**, não arquivos de mídia; são identificadas em \`midias_nao_hospedadas\` e precisam de arquivo original ou autorização/acesso específico para importação.
+- O download de cada mídia depende de sua disponibilidade e das permissões do servidor remoto; uma referência não comprova que o arquivo foi importado.
+- O espelho não armazena avaliações novas automaticamente: a base vem dos CSVs versionados no GitHub.
+
+### Configuração obrigatória no Easypanel
+
+1. No serviço \`dahuer-comments\`, configure **Volume / Armazenamento persistente** montado em **\`/app/media\`**. Faça isso *antes* de executar o importador, senão os downloads podem se perder no próximo deploy. Para deploy com Docker Compose, há volume nomeado \`dahuer-media:/app/media\`.
+2. Mantenha **1 réplica**, porta interna **8000**, build pelo Dockerfile da branch \`main\`.
+3. Faça **Deploy**. Não é necessário alterar o nome/domínio da API nem as LPs que usam o widget atual.
+4. Acompanhe \`/api/v1/media/status\` ou os logs. O painel inicial também mostra a quantidade importada.
+
+Configuráveis via variáveis de ambiente: \`DAHUER_MEDIA_DIR=/app/media\`, \`DAHUER_MEDIA_AUTO_SYNC=true\`, \`DAHUER_MAX_IMAGE_MB=8\`, \`DAHUER_MAX_VIDEO_MB=48\` e, opcionalmente, \`DAHUER_PUBLIC_BASE_URL=https://seu-dominio\`.
+
+Se preferir disparar manualmente pelo terminal do contêiner:
+\`\`\`bash
+python media_store.py --status
+python media_store.py --retry-failed
+\`\`\`
+Os downloads são limitados a URLs dos CDNs dos marketplaces presentes nos CSVs, sem parâmetros de URL arbitrários, com validação do tipo de arquivo. Imagens e vídeos de terceiros podem estar sujeitos a direitos autorais, termos das plataformas e autorizações para uso publicitário: valide as permissões antes de redistribuí-los.
+
 ## Download público imediato
 
 - [Shopee (CSV)](https://raw.githubusercontent.com/Gabriel112252/dahuer_comments/main/data/hidrabene_shopee.csv)
@@ -64,6 +94,8 @@ uvicorn app:app --reload
 | `GET` | `/` | Painel visual (seleção, prévia, código e download) |
 | `GET` | `/widget.js` | Componente JS incorporável nas LPs |
 | `GET` | `/api` | Informações da API |
+| `GET` | `/api/v1/media/status` | Quantidade de mídias já importadas e pendentes |
+| `GET` | `/media/{id}` | Foto ou vídeo servido pelo nosso domínio |
 | `GET` | `/healthz` | Saúde da API |
 | `GET` | `/docs` | Swagger UI |
 | `GET` | `/openapi.json` | Contrato OpenAPI |
@@ -94,8 +126,8 @@ O projeto expõe a porta `8000`. Em qualquer hospedagem compatível com Docker, 
 
 ## Campos
 
-Os CSVs usam `;` como separador: `canal`, `produto`, `nota`, `data`, `autor`, `texto`, `variacao`, `tem_foto_ou_video`, `link`, `midia_links`, `midia_arquivos`. A API também adiciona `id` estável, `midias` (links) e `arquivos_midia_referenciados` (nomes de arquivos, não URLs hospedadas). As datas são mantidas como fornecidas, inclusive valores relativos como “Há 6 meses”; notas não informadas tornam-se `null`.
+Os CSVs usam `;` como separador: `canal`, `produto`, `nota`, `data`, `autor`, `texto`, `variacao`, `tem_foto_ou_video`, `link`, `midia_links`, `midia_arquivos`. A API também adiciona `id` estável, `midias` (links locais), `midias_info` (links locais com tipo), `midias_originais` (URLs de origem), `midias_nao_hospedadas` (links não importáveis, por exemplo páginas de vídeos do TikTok) e `arquivos_midia_referenciados` (nomes originais, não URLs hospedadas). As datas são mantidas como fornecidas, inclusive valores relativos como “Há 6 meses”; notas não informadas tornam-se `null`.
 
 ## Direitos e origem
 
-**O código** é distribuído sob licença MIT. **Avaliações, nomes de autores, imagens e vídeos são conteúdos de terceiros e não passam a ser MIT.** Consulte as plataformas e obtenha os direitos necessários antes de redistribuir dados em produção; mantenha links de origem, respeite solicitações de remoção e as regras das plataformas. Esta API não disponibiliza os arquivos binários de mídia nem contorna restrições de download de criadores. URLs de mídia podem deixar de funcionar. A base é um snapshot, sem coleta automática nem promessa de atualização em tempo real.
+**O código** é distribuído sob licença MIT. **Avaliações, nomes de autores, imagens e vídeos são conteúdos de terceiros e não passam a ser MIT.** Consulte as plataformas e obtenha os direitos necessários antes de redistribuir dados em produção; mantenha links de origem, respeite solicitações de remoção e as regras das plataformas. O serviço hospeda cópias dos arquivos diretos que puder baixar; não contorna restrições de acesso às mídias nem baixa páginas protegidas. URLs de mídia podem deixar de funcionar. A base é um snapshot, sem coleta automática nem promessa de atualização em tempo real.
