@@ -72,7 +72,7 @@ const {data} = await fetch(url).then(r => r.json());
 const protetoresShopee = data.filter(x => x.canal === 'Shopee' && x.produto === 'Protetor');
 ```
 
-A URL estática entrega a base inteira. Para filtros por URL, paginação e Swagger, utilize a API hospedada no Easypanel.
+A URL estática entrega a base inteira como snapshot de origem e **ainda contém URLs externas**. Para LPs, use exclusivamente a API hospedada no Easypanel: ela devolve as URLs `/media/...` do nosso domínio, com filtros e Swagger.
 
 ## Execução
 
