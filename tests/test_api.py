@@ -53,3 +53,12 @@ def test_studio_and_embed_script():
     assert 'data-target' not in widget.text or 'dataset.target' in widget.text
     api = client.get('/api')
     assert api.status_code == 200 and api.json()['total_avaliacoes'] == 220
+
+
+def test_empty_preview_hides_after_selection():
+    home = client.get('/').text
+    # Author CSS must override the user-agent default when hidden is set.
+    assert '[hidden]{display:none!important}' in home
+    assert 'empty.hidden=selected;preview.hidden=!selected;' in home.replace(' ', '')
+    widget = client.get('/widget.js').text
+    assert ':host([data-theme="dark"]) .dc-root' in widget
