@@ -30,6 +30,7 @@
     .dc-variant { font-size:11px; color:var(--dc-muted); margin-top:10px; }
     .dc-media { display:flex; gap:6px; margin-top:12px; overflow:hidden; }
     .dc-media img { width:67px; height:67px; object-fit:cover; border-radius:9px; background:#edf2ef; border:1px solid var(--dc-border); }
+    .dc-media video { width:130px; height:98px; max-width:100%; object-fit:cover; border-radius:9px; background:#101b1b; border:1px solid var(--dc-border); }
     .dc-bottom { display:flex; margin-top:12px; justify-content:space-between; align-items:center; gap:10px; }
     .dc-link { color:var(--dc-accent); font-size:11px; text-decoration:none; font-weight:700; }
     .dc-link:hover { text-decoration:underline; }
@@ -84,20 +85,30 @@
       card.append(expand);
     }
     if (c.variacao) card.append(el('div', 'dc-variant', c.variacao));
-    const images = (Array.isArray(c.midias) ? c.midias : [])
-      .filter(u => /^https:\/\//i.test(u) && !/\.(mp4|webm|mov)(\?|$)/i.test(u)).slice(0, 3);
-    if (images.length) {
+    const mediaItems = Array.isArray(c.midias_info) ? c.midias_info.slice(0, 3)
+      : (Array.isArray(c.midias) ? c.midias.slice(0, 3).map(url => ({url, tipo:'image'})) : []);
+    if (mediaItems.length) {
       const media = el('div', 'dc-media');
-      images.forEach((url, i) => {
-        const a = el('a');
-        if (!setLink(a, c.link || url)) return;
-        const img = el('img');
-        img.loading = 'lazy'; img.decoding = 'async'; img.referrerPolicy = 'no-referrer';
-        img.src = url; img.alt = 'Foto da avaliação ' + (i + 1);
-        img.addEventListener('error', () => { a.remove(); });
-        a.append(img); media.append(a);
+      mediaItems.forEach((item, i) => {
+        if (!item || typeof item.url !== 'string' || !/^https:\/\//i.test(item.url)) return;
+        if (item.tipo === 'video') {
+          const video = el('video');
+          video.preload = 'none'; video.controls = true; video.playsInline = true;
+          video.setAttribute('aria-label', 'Vídeo da avaliação ' + (i + 1));
+          video.src = item.url;
+          video.addEventListener('error', () => video.remove());
+          media.append(video);
+        } else if (item.tipo === 'image') {
+          const a = el('a');
+          if (!setLink(a, c.link || item.url)) return;
+          const img = el('img');
+          img.loading = 'lazy'; img.decoding = 'async'; img.referrerPolicy = 'no-referrer';
+          img.src = item.url; img.alt = 'Foto da avaliação ' + (i + 1);
+          img.addEventListener('error', () => a.remove());
+          a.append(img); media.append(a);
+        }
       });
-      card.append(media);
+      if (media.childNodes.length) card.append(media);
     }
     const footer = el('div', 'dc-bottom');
     if (c.data) footer.append(el('span', 'dc-date', c.data));
