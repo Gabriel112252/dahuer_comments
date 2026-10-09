@@ -19,6 +19,8 @@
     .dc-person { display:flex; align-items:center; gap:10px; min-width:0; }
     .dc-avatar { width:34px; height:34px; flex:0 0 34px; border-radius:12px; display:grid; place-items:center; background:#def6ec; color:#05685e; font-size:13px; font-weight:800; }
     .dc-person-meta { flex:1; min-width:0; }
+    .dc-avatar-platform { background:#e5f4ef; color:#087d70; font-size:18px; }
+    :host([data-theme="dark"]) .dc-avatar-platform { background:#2b4c44; color:#86e6c8; }
     .dc-name { font-weight:700; font-size:13px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
     .dc-source { color:var(--dc-muted); font-size:11px; margin-top:3px; }
     .dc-rating { color:#efad36; letter-spacing:2px; font-size:16px; margin:15px 0 8px; }
@@ -53,10 +55,15 @@
   function drawCard(c) {
     const card = el('article', 'dc-card');
     const person = el('div', 'dc-person');
-    const avatar = el('span', 'dc-avatar', (c.autor || 'C').trim().charAt(0).toUpperCase());
+    const author = (c.autor || '').trim();
+    const anonymous = !author || author.toLocaleLowerCase('pt-BR') === 'cliente';
+    const platform = (c.canal || 'Marketplace').trim();
+    const avatar = el('span', 'dc-avatar' + (anonymous ? ' dc-avatar-platform' : ''), anonymous ? '★' : author.charAt(0).toUpperCase());
     const meta = el('div', 'dc-person-meta');
-    meta.append(el('div', 'dc-name', c.autor || 'Cliente'),
-      el('div', 'dc-source', (c.canal || 'Marketplace') + ' · ' + (c.produto || 'Produto')));
+    meta.append(el('div', 'dc-name', anonymous ? platform : author),
+      el('div', 'dc-source', anonymous
+        ? 'Avaliação publicada · ' + (c.produto || 'Produto')
+        : platform + ' · ' + (c.produto || 'Produto')));
     person.append(avatar, meta);
     card.append(person);
     const nota = Number(c.nota);
