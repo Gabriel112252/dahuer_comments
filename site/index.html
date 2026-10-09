@@ -1,0 +1,216 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#f5f8f6">
+  <meta name="description" content="Escolha um produto, personalize e incorpore avaliações reais em suas landing pages.">
+  <title>Dahuer Comments · Avaliações para suas LPs</title>
+  <style>
+    :root{color-scheme:light;font-family:Inter,ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:#172f2c;background:#f5f8f6}
+    *{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;font-size:14px}
+    button,select,input{font:inherit}button{cursor:pointer}a{color:inherit}button:focus-visible,select:focus-visible,input:focus-visible,a:focus-visible,textarea:focus-visible{outline:3px solid #9be2cc;outline-offset:2px}
+    .container{max-width:1320px;padding:0 28px;margin:0 auto}
+    .nav{border-bottom:1px solid #e5ede9;background:#fff}
+    .navinner{height:72px;display:flex;align-items:center;justify-content:space-between;gap:16px}
+    .brand{display:flex;align-items:center;gap:11px;text-decoration:none;font-weight:820;letter-spacing:-.5px;font-size:18px}
+    .logo{width:33px;height:33px;border-radius:11px;background:#087d70;color:#fff;display:grid;place-items:center;font-size:19px;font-weight:900}
+    .brand small{font-size:12px;color:#93a29e;font-weight:650;letter-spacing:0}
+    .navlinks{display:flex;gap:12px;align-items:center}
+    .navlinks a{text-decoration:none;font-size:13px;font-weight:700;color:#62756e;padding:9px 12px;border-radius:9px}
+    .navlinks a:hover{background:#f0f7f3;color:#106e60}
+    .navlinks .api{color:#087d70;border:1px solid #cbece1}
+    .hero{padding:48px 0 33px}
+    .eyebrow{display:inline-flex;align-items:center;gap:7px;color:#13816d;font-size:12px;font-weight:760;padding:8px 12px;border-radius:100px;background:#e3f5ed}
+    .eyebrow .dot{height:7px;width:7px;border-radius:99px;background:#23bc91;box-shadow:0 0 0 3px #c0ebdc}
+    h1{font-size:clamp(30px,4vw,46px);letter-spacing:-2px;line-height:1.16;margin:20px 0 12px;font-weight:830;max-width:740px}
+    .hero p{font-size:15px;line-height:1.8;color:#677a73;max-width:690px;margin:0}
+    .facts{display:flex;align-items:center;gap:12px;margin-top:23px;flex-wrap:wrap}
+    .fact{font-size:12px;background:white;border:1px solid #e1ebe6;border-radius:100px;padding:8px 12px;color:#63786f;font-weight:700}
+    .fact strong{color:#145f50}
+    .workspace{display:grid;grid-template-columns:minmax(300px,360px) minmax(0,1fr);gap:24px;align-items:start;padding-bottom:70px}
+    .panel{background:white;border:1px solid #e2ebe6;border-radius:20px;box-shadow:0 8px 35px #174e3310}
+    .panel-head{padding:24px 24px 20px;border-bottom:1px solid #edf2ef}
+    .step{font-size:11px;font-weight:800;text-transform:uppercase;color:#119076;letter-spacing:.12em}
+    h2{letter-spacing:-.65px;font-size:19px;margin:8px 0 6px}
+    .muted{color:#7b8984;font-size:12px;line-height:1.55;margin:0}
+    .settings{padding:22px 24px 24px}
+    .field{display:flex;flex-direction:column;gap:8px;margin-bottom:18px}
+    .field label{font-weight:750;font-size:12px}
+    .field select,.field input{width:100%;min-height:44px;background:#fafcfb;border:1px solid #dce9e2;border-radius:11px;padding:0 12px;color:#223b34;outline:none}
+    .field select:focus,.field input:focus{border-color:#3aae91;box-shadow:0 0 0 3px #dff8ed}
+    .fieldrow{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+    .toggle{display:flex;gap:11px;align-items:center;font-weight:650;font-size:12px;color:#435e52;margin:2px 0 18px;cursor:pointer}
+    .toggle input{width:16px;height:16px;accent-color:#078270}
+    .tip{border-radius:12px;background:#f0f8f4;padding:12px 13px;color:#56736a;font-size:12px;line-height:1.65}
+    .settings hr{border:0;border-top:1px solid #eef3f0;margin:22px 0}
+    .settings h3{font-size:14px;margin:0 0 10px;letter-spacing:-.2px}
+    .copybox{width:100%;resize:vertical;min-height:116px;border:1px solid #dce7e2;border-radius:10px;background:#f7faf8;color:#456157;padding:12px;font:11px/1.7 ui-monospace,SFMono-Regular,Consolas,monospace}
+    .btn{min-height:43px;border:0;border-radius:11px;font-weight:750;padding:10px 14px;display:inline-flex;align-items:center;justify-content:center;gap:8px;text-decoration:none;white-space:nowrap}
+    .primary{background:#087d70;color:white}.primary:hover{background:#086c61}
+    .secondary{background:#f0f6f3;color:#1e6a59;border:1px solid #dcece4}.secondary:hover{background:#e6f2eb}
+    .btn:disabled{opacity:.46;cursor:not-allowed}
+    .block{width:100%;margin-top:11px}
+    .caption{font-size:11px;color:#889891;line-height:1.6;margin:10px 0 0}
+    .downloads{display:flex;gap:8px;margin-top:12px}
+    .downloads .btn{flex:1;font-size:12px}
+    .preview{min-width:0;overflow:hidden}
+    .previewbar{display:flex;align-items:center;gap:12px;justify-content:space-between;flex-wrap:wrap;padding:18px 24px;border-bottom:1px solid #edf2ef}
+    .previewbar h2{margin:0;font-size:16px}
+    .previewstats{color:#72847c;font-size:12px}
+    .window{background:#f6faf7;padding:21px;min-height:530px}
+    .screen{background:white;border:1px solid #edf1ed;border-radius:14px;min-height:480px;padding:26px;box-shadow:0 2px 16px #0a36220c}
+    .placeholder{min-height:400px;display:flex;justify-content:center;align-items:center;text-align:center;flex-direction:column;padding:20px;color:#7e9088}
+    .illustration{height:70px;width:70px;background:#e3f6ed;border-radius:25px;display:grid;place-items:center;color:#06836c;font-size:32px;margin-bottom:18px}
+    .placeholder h3{margin:0 0 9px;color:#304e43;font-size:17px}
+    .placeholder p{max-width:350px;line-height:1.6;margin:0;font-size:13px}
+    .view-foot{padding:18px 24px;display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px;border-top:1px solid #edf2ef}
+    .view-foot .muted{max-width:530px}
+    .view-foot a{color:#0b806b;text-decoration:none;font-weight:750;font-size:12px}
+    .foot{border-top:1px solid #e2ebe6;padding:22px 0 35px;color:#82918a;font-size:12px}
+    .footinner{display:flex;justify-content:space-between;gap:15px;flex-wrap:wrap}
+    @media(max-width:990px){.workspace{grid-template-columns:1fr}.container{padding:0 18px}.hero{padding:34px 0 25px}.panel-head{padding:20px}.settings{padding:20px}}
+    @media(max-width:580px){h1{letter-spacing:-1.2px}.navinner{height:63px}.brand{font-size:15px}.brand small{display:none}.navlinks{gap:2px}.navlinks a{padding:7px;font-size:11px}.window{padding:11px;min-height:320px}.screen{padding:15px;min-height:320px}.fieldrow{grid-template-columns:1fr 1fr}.previewbar,.view-foot{padding:16px}}
+  </style>
+</head>
+<body>
+  <header class="nav"><div class="container navinner">
+    <a class="brand" href="/"><span class="logo">✦</span><span>Dahuer Comments <small>/ Studio</small></span></a>
+    <div class="navlinks"><a href="#configurar">Criar widget</a><a href="/docs" target="_blank" rel="noopener">API Docs ↗</a><a class="api" href="https://github.com/Gabriel112252/dahuer_comments" target="_blank" rel="noopener">GitHub ↗</a></div>
+  </div></header>
+  <main class="container">
+    <section class="hero">
+      <span class="eyebrow"><span class="dot"></span> API pública · Pronta para sua landing page</span>
+      <h1>Avaliações reais.<br>Na sua página, do seu jeito.</h1>
+      <p>Selecione um produto, escolha os comentários e copie o código de incorporação. Sem precisar programar ou cadastrar uma conta.</p>
+      <div class="facts"><span class="fact"><strong id="global-count">220</strong> avaliações</span><span class="fact"><strong id="product-count">11</strong> produtos</span><span class="fact"><strong>4</strong> marketplaces</span><span class="fact">Atualização via deploy</span></div>
+    </section>
+    <section class="workspace" id="configurar">
+      <aside class="panel">
+        <div class="panel-head"><span class="step">01 · Personalização</span><h2>Monte seu widget</h2><p class="muted">Escolha o que seus visitantes vão ver na LP.</p></div>
+        <div class="settings">
+          <div class="field"><label for="produto">Produto <span style="color:#087d70">*</span></label><select id="produto"><option value="">Selecione um produto…</option></select></div>
+          <div class="field"><label for="canal">Marketplace</label><select id="canal"><option value="">Todas as plataformas</option></select></div>
+          <div class="fieldrow">
+            <div class="field"><label for="nota">Avaliação</label><select id="nota"><option value="">Todas as notas</option><option value="5">★★★★★ (5)</option><option value="4">★★★★☆ (4)</option><option value="3">★★★☆☆ (3)</option><option value="2">★★☆☆☆ (2)</option><option value="1">★☆☆☆☆ (1)</option></select></div>
+            <div class="field"><label for="limite">Exibir</label><select id="limite"><option value="4">4 comentários</option><option value="6" selected>6 comentários</option><option value="8">8 comentários</option><option value="12">12 comentários</option><option value="20">20 comentários</option></select></div>
+          </div>
+          <div class="field"><label for="busca">Palavra-chave (opcional)</label><input id="busca" type="search" placeholder="Ex.: textura, entrega, clareamento" maxlength="150"></div>
+          <div class="field"><label for="tema">Aparência</label><select id="tema"><option value="light">Clara</option><option value="dark">Escura</option></select></div>
+          <label class="toggle"><input id="midia" type="checkbox"> Mostrar somente avaliações com fotos ou vídeos</label>
+          <div class="tip">💡 As avaliações têm autoria e marketplace identificados, com link para conferir a publicação original. As imagens dependem dos links das plataformas.</div>
+          <hr>
+          <span class="step">02 · Incorporar na LP</span><h3 style="margin-top:9px">Código pronto para copiar</h3>
+          <textarea id="codigo" class="copybox" readonly aria-label="Código de incorporação" placeholder="Selecione um produto para gerar o código."></textarea>
+          <button id="copiar" class="btn primary block" type="button" disabled>Copiar código para minha LP</button>
+          <button id="copiar-api" class="btn secondary block" type="button" disabled>Copiar URL da API filtrada</button>
+          <p class="caption">Cole o código HTML em sua LP. Ele carrega os comentários automaticamente da API pública.</p>
+          <hr>
+          <h3>Baixar dados</h3><p class="muted">Exporte os comentários com os filtros selecionados.</p>
+          <div class="downloads">
+            <a class="btn secondary" id="csv" href="/api/v1/download?formato=csv" download>↓ Baixar CSV</a>
+            <a class="btn secondary" id="json" href="/api/v1/download?formato=json" download>↓ Baixar JSON</a>
+          </div>
+        </div>
+      </aside>
+      <section class="panel preview" aria-label="Prévia do widget">
+        <div class="previewbar"><div><span class="step">03 · Prévia ao vivo</span><h2>Assim vai aparecer na sua LP</h2></div><span class="previewstats" id="preview-count">Escolha um produto</span></div>
+        <div class="window"><div class="screen">
+          <div class="placeholder" id="empty"><div class="illustration">★</div><h3>Seu widget vai aparecer aqui</h3><p>Selecione o produto à esquerda para visualizar as avaliações e gerar o código de incorporação.</p></div>
+          <div id="review-preview" hidden></div>
+        </div></div>
+        <div class="view-foot"><p class="muted">As avaliações são de compradores em plataformas externas, não de um sistema próprio de verificação.</p><a href="/docs" target="_blank" rel="noopener">Explorar documentação API ↗</a></div>
+      </section>
+    </section>
+  </main>
+  <footer class="foot"><div class="container footinner"><span>© 2026 Dahuer Comments · Ferramenta gratuita para LPs</span><span>Respeite as regras das plataformas e direitos dos autores ao reutilizar avaliações e mídias.</span></div></footer>
+  <script src="/widget.js"></script>
+  <script>
+    (function(){
+      'use strict';
+      const ids=['produto','canal','nota','limite','busca','tema','midia'];
+      const fields=Object.fromEntries(ids.map(id=>[id,document.getElementById(id)]));
+      const snippetBox=document.getElementById('codigo');
+      const preview=document.getElementById('review-preview');
+      const empty=document.getElementById('empty');
+      const copy=document.getElementById('copiar');
+      const copyApi=document.getElementById('copiar-api');
+      const results=document.getElementById('preview-count');
+      let debounce=null;
+      function query(includePage){
+        const p=new URLSearchParams();
+        if(fields.produto.value)p.set('produto',fields.produto.value);
+        if(fields.canal.value)p.set('canal',fields.canal.value);
+        if(fields.nota.value)p.set('nota',fields.nota.value);
+        if(fields.busca.value.trim())p.set('q',fields.busca.value.trim());
+        if(fields.midia.checked)p.set('com_midia','true');
+        if(includePage)p.set('per_page',fields.limite.value);
+        return p;
+      }
+      function escapeAttr(s){
+        return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+      }
+      function code(){
+        const attrs=['data-target="dahuer-avaliacoes"','data-produto="'+escapeAttr(fields.produto.value)+'"','data-limit="'+fields.limite.value+'"','data-theme="'+fields.tema.value+'"'];
+        if(fields.canal.value)attrs.push('data-canal="'+escapeAttr(fields.canal.value)+'"');
+        if(fields.nota.value)attrs.push('data-nota="'+fields.nota.value+'"');
+        if(fields.busca.value.trim())attrs.push('data-q="'+escapeAttr(fields.busca.value.trim())+'"');
+        if(fields.midia.checked)attrs.push('data-com-midia="true"');
+        return '<div id="dahuer-avaliacoes"></div>\n'
+          + '<scr'+'ipt defer src="'+location.origin+'/widget.js" '+attrs.join(' ')+'></scr'+'ipt>';
+      }
+      function update(){
+        const selected=Boolean(fields.produto.value);
+        copy.disabled=!selected;copyApi.disabled=!selected;
+        snippetBox.value=selected?code():'';
+        const exportQ=query(false);
+        const csvQ=new URLSearchParams(exportQ);csvQ.set('formato','csv');
+        const jsonQ=new URLSearchParams(exportQ);jsonQ.set('formato','json');
+        document.getElementById('csv').href='/api/v1/download?'+csvQ;
+        document.getElementById('json').href='/api/v1/download?'+jsonQ;
+        empty.hidden=selected;preview.hidden=!selected;
+        if(!selected){results.textContent='Escolha um produto';return;}
+        results.textContent='Carregando…';
+        window.DahuerComments.mount(preview,{
+          produto:fields.produto.value,canal:fields.canal.value,nota:fields.nota.value,q:fields.busca.value.trim(),
+          com_midia:fields.midia.checked,limit:Number(fields.limite.value),theme:fields.tema.value,
+          onResult:r=>{results.textContent=r.error?'Falha ao carregar':r.total+' avaliações encontradas';}
+        });
+      }
+      function schedule(){
+        clearTimeout(debounce);
+        debounce=setTimeout(update,fields.busca===document.activeElement?280:50);
+      }
+      async function clipboard(text,button,success){
+        try{
+          await navigator.clipboard.writeText(text);
+        }catch(_){
+          snippetBox.value=text;snippetBox.focus();snippetBox.select();
+          if(!document.execCommand('copy'))return;
+          snippetBox.value=fields.produto.value?code():'';
+        }
+        const previous=button.textContent;
+        button.textContent=success;
+        setTimeout(()=>button.textContent=previous,1900);
+      }
+      copy.addEventListener('click',()=>clipboard(code(),copy,'✓ Código copiado'));
+      copyApi.addEventListener('click',()=>clipboard(location.origin+'/api/v1/comments?'+query(true),copyApi,'✓ URL copiada'));
+      ids.forEach(id=>fields[id].addEventListener(id==='busca'?'input':'change',schedule));
+      (async()=>{
+        try{
+          const [products,channels,health]=await Promise.all([
+            fetch('/api/v1/products').then(r=>{if(!r.ok)throw Error();return r.json()}),
+            fetch('/api/v1/channels').then(r=>{if(!r.ok)throw Error();return r.json()}),
+            fetch('/healthz').then(r=>r.json())
+          ]);
+          document.getElementById('global-count').textContent=health.total_avaliacoes;
+          document.getElementById('product-count').textContent=products.length;
+          products.forEach(p=>{const opt=new Option(p.produto+' ('+p.total+')',p.produto);fields.produto.add(opt)});
+          channels.forEach(c=>{const opt=new Option(c.canal+' ('+c.total+')',c.canal);fields.canal.add(opt)});
+        }catch(e){results.textContent='Não foi possível consultar o catálogo. Recarregue a página.';}
+        update();
+      })();
+    })();
+  </script>
+</body>
+</html>
