@@ -83,7 +83,7 @@
       <span class="eyebrow"><span class="dot"></span> API pública · Pronta para sua landing page</span>
       <h1>Avaliações reais.<br>Na sua página, do seu jeito.</h1>
       <p>Selecione um produto, escolha os comentários e copie o código de incorporação. Sem precisar programar ou cadastrar uma conta.</p>
-      <div class="facts"><span class="fact"><strong id="global-count">220</strong> avaliações</span><span class="fact"><strong id="product-count">11</strong> produtos</span><span class="fact"><strong>4</strong> marketplaces</span><span class="fact">Atualização via deploy</span></div>
+      <div class="facts"><span class="fact"><strong id="global-count">220</strong> avaliações</span><span class="fact"><strong id="product-count">11</strong> produtos</span><span class="fact"><strong>4</strong> marketplaces</span><span class="fact">📦 <strong id="media-count">...</strong> mídias no nosso servidor</span></div>
     </section>
     <section class="workspace" id="configurar">
       <aside class="panel">
@@ -196,6 +196,9 @@
       copy.addEventListener('click',()=>clipboard(code(),copy,'✓ Código copiado'));
       copyApi.addEventListener('click',()=>clipboard(location.origin+'/api/v1/comments?'+query(true),copyApi,'✓ URL copiada'));
       ids.forEach(id=>fields[id].addEventListener(id==='busca'?'input':'change',schedule));
+      fetch('/api/v1/media/status').then(r=>r.json()).then(s=>{
+        document.getElementById('media-count').textContent=s.baixados+' / '+s.total_importaveis;
+      }).catch(()=>{document.getElementById('media-count').textContent='indisponíveis';});
       (async()=>{
         try{
           const [products,channels,health]=await Promise.all([
