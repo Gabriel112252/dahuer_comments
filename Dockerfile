@@ -1,5 +1,5 @@
 FROM python:3.12-slim
-ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 DAHUER_MEDIA_DIR=/app/media DAHUER_MEDIA_AUTO_SYNC=true
+ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 DAHUER_MEDIA_DIR=/app/media DAHUER_MEDIA_AUTO_SYNC=true DAHUER_PUBLIC_BASE_URL=https://workspace-dahuer-comments.yu7gwy.easypanel.host
 WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt && useradd -r -u 10001 api
