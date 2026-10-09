@@ -15,8 +15,9 @@ from typing import Any
 
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import Response
+from fastapi.responses import FileResponse, Response
 
+SITE_DIR = Path(__file__).parent / 'site'
 DATA_DIR = Path(os.environ.get('DAHUER_DATA_DIR', Path(__file__).parent / 'data'))
 CSV_FILES = ('hidrabene_shopee.csv', 'hidrabene_mercadolivre.csv', 'hidrabene_tiktok.csv', 'hidrabene_amazon.csv')
 FIELDS = ('canal', 'produto', 'nota', 'data', 'autor', 'texto', 'variacao', 'tem_foto_ou_video', 'link', 'midia_links', 'midia_arquivos')
@@ -89,8 +90,21 @@ def filter_comments(
     return items
 
 
-@app.get('/', tags=['Sobre'])
+@app.get('/', include_in_schema=False)
 def root():
+    return FileResponse(SITE_DIR / 'index.html', media_type='text/html')
+
+
+@app.get('/widget.js', include_in_schema=False)
+def widget():
+    return FileResponse(
+        SITE_DIR / 'widget.js', media_type='application/javascript',
+        headers={'Cache-Control': 'public, max-age=300'},
+    )
+
+
+@app.get('/api', tags=['Sobre'])
+def api_info():
     return {'nome': 'Dahuer Comments API', 'total_avaliacoes': len(read_comments()), 'documentacao': '/docs', 'api': '/api/v1/comments', 'download': '/api/v1/download'}
 
 
