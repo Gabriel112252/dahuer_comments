@@ -6,8 +6,17 @@ services:
       - "8000:8000"
     environment:
       PYTHONUNBUFFERED: "1"
+      DAHUER_MEDIA_DIR: "/app/media"
+      DAHUER_MEDIA_AUTO_SYNC: "true"
+      DAHUER_MAX_IMAGE_MB: "8"
+      DAHUER_MAX_VIDEO_MB: "48"
+    volumes:
+      - dahuer-media:/app/media
     read_only: true
     tmpfs:
       - /tmp
     security_opt:
       - no-new-privileges:true
+
+volumes:
+  dahuer-media:
