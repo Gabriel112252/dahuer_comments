@@ -1,10 +1,22 @@
-# Dahuer Comments API
+# Dahuer Comments · Studio e API
+
+**Painel visual para landing pages já hospedado no Easypanel:** https://workspace-dahuer-comments.yu7gwy.easypanel.host/
+
+## Como usar sem programar
+
+1. Acesse o painel acima e escolha **produto**, marketplace, estrelas, quantidade de avaliações, fotos e tema.
+2. Confira a prévia e clique em **Copiar código para minha LP**.
+3. Cole o HTML copiado na sua landing page. O script público em `/widget.js` carrega as avaliações com segurança, sem interferir no CSS da página.
+
+O painel também permite copiar a URL da API filtrada ou **baixar CSV/JSON**. Não há login e nem armazenamento de preferências.
+
+**Nota:** o código de incorporação requer a API no ar; a URL padrão acima depende do serviço no Easypanel. Se esse endereço mudar, gere um novo snippet no domínio definitivo.
 
 API REST **pública, gratuita e somente leitura** para consultar e exportar avaliações públicas de produtos Hidrabene coletadas em **Shopee, Mercado Livre, TikTok e Amazon**.
 
 **Base inicial: 220 avaliações** (Shopee 74, Mercado Livre 60, TikTok 54, Amazon 32). Os dados estão em [`data/`](data/), disponíveis para download direto, inclusive sem executar servidor.
 
-> **Atenção:** o repositório disponibiliza o código e os CSVs. **Para ter uma URL pública com filtros, é necessário hospedar a API** (Docker, Render, Railway, VPS ou similar). Um repositório público do GitHub, por si só, não executa o servidor FastAPI.
+> **Hospedagem:** a API está disponível no Easypanel no endereço acima. O GitHub continua oferecendo o código e os CSVs; um repositório sozinho não executa o servidor.
 
 ## Download público imediato
 
@@ -30,7 +42,7 @@ const {data} = await fetch(url).then(r => r.json());
 const protetoresShopee = data.filter(x => x.canal === 'Shopee' && x.produto === 'Protetor');
 ```
 
-A URL estática entrega a base inteira; **filtros por URL, paginação e Swagger só funcionam quando o FastAPI é colocado no ar**.
+A URL estática entrega a base inteira. Para filtros por URL, paginação e Swagger, utilize a API hospedada no Easypanel.
 
 ## Execução
 
@@ -49,7 +61,9 @@ uvicorn app:app --reload
 
 | Método | Caminho | Uso |
 |---|---|---|
-| `GET` | `/` | Informações e links |
+| `GET` | `/` | Painel visual (seleção, prévia, código e download) |
+| `GET` | `/widget.js` | Componente JS incorporável nas LPs |
+| `GET` | `/api` | Informações da API |
 | `GET` | `/healthz` | Saúde da API |
 | `GET` | `/docs` | Swagger UI |
 | `GET` | `/openapi.json` | Contrato OpenAPI |
@@ -76,7 +90,7 @@ curl -OJ 'http://localhost:8000/api/v1/download?formato=csv&canal=Amazon'
 
 ## Deploy público
 
-O projeto expõe a porta `8000`. Em qualquer hospedagem compatível com Docker, configure domínio HTTPS apontando ao contêiner, com comando/porta do Dockerfile padrão. Recomenda-se um serviço simples (1 réplica é suficiente para o volume inicial) com SSL e monitoramento de `/healthz`. No Easypanel, use o repositório GitHub, build via Dockerfile, porta interna `8000` e conecte o domínio desejado.
+O projeto expõe a porta `8000`. Em qualquer hospedagem compatível com Docker, configure domínio HTTPS apontando ao contêiner, com comando/porta do Dockerfile padrão. Recomenda-se um serviço simples (1 réplica é suficiente para o volume inicial) com SSL e monitoramento de `/healthz`. No Easypanel, use o repositório GitHub, build via Dockerfile, porta interna `8000` e conecte o domínio desejado. Para atualizar o painel, faça um novo build/deploy da branch `main`.
 
 ## Campos
 
