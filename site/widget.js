@@ -9,6 +9,7 @@
     :host([data-theme="dark"]) { --dc-accent:#63dfc1; --dc-card:#1f302f; --dc-text:#f2f7f5; --dc-muted:#a8bdb6; --dc-border:#40504d; }
     * { box-sizing:border-box; }
     .dc-root { color:var(--dc-text); font-family:Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; }
+    :host([data-theme="dark"]) .dc-root { background:#142724; border-radius:16px; padding:18px; }
     .dc-top { display:flex; gap:14px; align-items:center; justify-content:space-between; margin:0 0 18px; }
     .dc-title { font-size:19px; font-weight:800; letter-spacing:-.5px; margin:0; }
     .dc-sub { color:var(--dc-muted); font-size:13px; margin:5px 0 0; }
