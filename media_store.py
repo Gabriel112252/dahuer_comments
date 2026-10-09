@@ -41,6 +41,7 @@ _download_locks: dict[str, threading.Lock] = {}
 _errors_lock = threading.Lock()
 _started_lock = threading.Lock()
 _started = False
+_active_downloads = threading.BoundedSemaphore(3)
 
 
 def split_links(value: str) -> list[str]:
@@ -234,7 +235,12 @@ def ensure_downloaded(key: str, *, retry_failed: bool = False) -> bool:
             return False
         try:
             MEDIA_DIR.mkdir(parents=True, exist_ok=True)
-            _fetch(key)
+            if not _active_downloads.acquire(timeout=15):
+                return False
+            try:
+                _fetch(key)
+            finally:
+                _active_downloads.release()
             clear_error(key)
             return True
         except (OSError, ValueError, HTTPError, URLError, TimeoutError) as exc:
@@ -279,6 +285,15 @@ def sync_all(*, retry_failed: bool = False) -> dict:
     return result
 
 
+def _auto_sync_loop() -> None:
+    while True:
+        try:
+            sync_all()
+        except Exception:
+            LOGGER.exception("Falha no ciclo de importação; novo ciclo em 12 horas")
+        time.sleep(RETRY_SECONDS)
+
+
 def start_auto_sync() -> None:
     global _started
     if os.getenv("DAHUER_MEDIA_AUTO_SYNC", "true").lower() not in ("1", "true", "yes"):
@@ -287,7 +302,7 @@ def start_auto_sync() -> None:
         if _started:
             return
         _started = True
-    threading.Thread(target=sync_all, name="dahuer-media-import", daemon=True).start()
+    threading.Thread(target=_auto_sync_loop, name="dahuer-media-import", daemon=True).start()
 
 
 if __name__ == "__main__":
