@@ -120,6 +120,8 @@ def detect_media(head: bytes) -> str | None:
         return "image/gif"
     if head[:4] == b"RIFF" and head[8:12] == b"WEBP":
         return "image/webp"
+    if head[4:8] == b"ftyp" and head[8:12] in (b"avif", b"avis", b"mif1"):
+        return "image/avif"
     if head[4:8] == b"ftyp":
         return "video/mp4"
     if head[:4] == b"\x1a\x45\xdf\xa3":
@@ -182,7 +184,7 @@ def _fetch(key: str) -> None:
     url = info["url"]
     request = Request(url, headers={
         "User-Agent": "Mozilla/5.0 (compatible; DahuerComments/1.0; media-cache)",
-        "Accept": "image/avif,image/webp,image/*,video/mp4,video/webm,*/*;q=0.5",
+        "Accept": "image/jpeg,image/png,image/webp,video/mp4,video/webm,*/*;q=0.5",
     })
     limit = MAX_VIDEO_BYTES if info["tipo"] == "video" else MAX_IMAGE_BYTES
     tmp_name = None
@@ -264,7 +266,8 @@ def status() -> dict:
 
 
 def sync_all(*, retry_failed: bool = False) -> dict:
-    keys = list(manifest())
+    catalog = manifest()
+    keys = sorted(catalog, key=lambda key: (catalog[key]["tipo"] == "video", key))
     LOGGER.info("Iniciando importação de %d URLs de mídia para %s", len(keys), MEDIA_DIR)
     for i, key in enumerate(keys, start=1):
         ensure_downloaded(key, retry_failed=retry_failed)
