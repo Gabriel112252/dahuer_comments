@@ -14,6 +14,24 @@ API REST **pública, gratuita e somente leitura** para consultar e exportar aval
 - [Amazon (CSV)](https://raw.githubusercontent.com/Gabriel112252/dahuer_comments/main/data/hidrabene_amazon.csv)
 - [Repositório completo (ZIP)](https://github.com/Gabriel112252/dahuer_comments/archive/refs/heads/main.zip)
 
+## JSON público (sem precisar hospedar servidor)
+
+**Endpoint estático, já acessível publicamente:**
+
+```text
+https://raw.githubusercontent.com/Gabriel112252/dahuer_comments/main/data/comments.json
+```
+
+Retorna um objeto com `snapshot`, `total` e `data` (as 220 avaliações). Exemplo:
+
+```js
+const url = 'https://raw.githubusercontent.com/Gabriel112252/dahuer_comments/main/data/comments.json';
+const {data} = await fetch(url).then(r => r.json());
+const protetoresShopee = data.filter(x => x.canal === 'Shopee' && x.produto === 'Protetor');
+```
+
+A URL estática entrega a base inteira; **filtros por URL, paginação e Swagger só funcionam quando o FastAPI é colocado no ar**.
+
 ## Execução
 
 ```bash
