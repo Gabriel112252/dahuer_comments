@@ -3,7 +3,7 @@ ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 DAHUER_MEDIA_DIR=/app/media DAH
 WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt && useradd -r -u 10001 api
-COPY app.py media_store.py ./
+COPY app.py media_store.py tiktok_media.py ./
 COPY data ./data
 COPY site ./site
 RUN mkdir -p /app/media && chown -R api:api /app/media
