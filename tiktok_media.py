@@ -16,6 +16,12 @@ from urllib.parse import urlsplit
 from yt_dlp import YoutubeDL
 
 LOG = logging.getLogger("dahuer.tiktok")
+# User-Agents usados em correções documentadas do yt-dlp para desafios do TikTok (set/2026).
+USER_AGENTS = (
+    ("Chrome 145", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36"),
+    ("Firefox 155", "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:155.0) Gecko/20100101 Firefox/155.0"),
+)
+
 VIDEO_PATH = re.compile(r"^/@[A-Za-z0-9._-]+/video/[0-9]{15,25}/?$")
 
 
@@ -73,14 +79,28 @@ def fetch_tiktok_video(url: str, destination: Path, max_bytes: int) -> None:
             "restrictfilenames": True,
             "skip_download": False,
         }
-        try:
-            with YoutubeDL(opts) as yt:
-                result = yt.download([url])
-            if result not in (None, 0):
-                raise ValueError("yt-dlp não conseguiu baixar o vídeo")
-        except Exception as exc:
-            # A exceção ficará registrada no status de mídia; a API continua no ar.
-            raise ValueError("Falha do extrator TikTok: " + str(exc)[:180]) from exc
+        # Uma resposta de desafio TikTok pode depender do User-Agent / TLS.
+        # Tenta dois perfis conhecidos, mantendo o limite de apenas 2 tentativas.
+        last_error = None
+        for index, (profile, user_agent) in enumerate(USER_AGENTS, start=1):
+            opts["http_headers"] = {"User-Agent": user_agent}
+            try:
+                LOG.info("TikTok download tentativa %s/%s (%s)", index, len(USER_AGENTS), profile)
+                with YoutubeDL(opts) as yt:
+                    result = yt.download([url])
+                if result not in (None, 0):
+                    raise ValueError("yt-dlp não conseguiu baixar o vídeo")
+                last_error = None
+                break
+            except Exception as exc:
+                last_error = exc
+                LOG.warning("TikTok tentativa %s (%s) falhou: %.160s", index, profile, str(exc))
+                # Não manter fragmentos de uma tentativa parcial.
+                for partial in folder.iterdir():
+                    if partial.is_file():
+                        partial.unlink(missing_ok=True)
+        if last_error is not None:
+            raise ValueError("Falha do extrator TikTok após perfis alternativos: " + str(last_error)[:180]) from last_error
 
         files = [f for f in folder.iterdir() if f.is_file() and f.suffix.lower() in (".mp4", ".webm")]
         if len(files) != 1:
