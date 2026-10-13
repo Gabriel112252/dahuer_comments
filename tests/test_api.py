@@ -393,7 +393,7 @@ def test_embedded_widget_uses_video_thumbnails_and_attribution():
     assert "dc-video-tile" in script
     assert "dc-video-poster" in script
     assert "makeVideoDialog(shadow)" in script
-    assert "data.data.forEach(c => grid.append(drawCard(c, dialog.open)))" in script
+    assert "data.data.forEach(c => grid.append(drawCard(c, videoDialog.open, imageDialog.open)))" in script
     assert "Comprador da Shopee" in script
     assert "Comprador do Mercado Livre" in script
     assert "Nome não informado" in script
