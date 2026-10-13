@@ -342,3 +342,62 @@ def test_daily_schedule_and_collector_status():
     assert status.status_code == 200
     assert "03:00" in status.json()["agendamento"]
     assert status.json()["descoberta_tiktok"] is False
+
+
+
+def test_review_video_poster_is_local_and_cached(monkeypatch, tmp_path):
+    """Gera a capa uma vez, reutilizando o MP4 e o volume existentes."""
+    import media_store
+    import subprocess
+
+    monkeypatch.setattr(media_store, "MEDIA_DIR", tmp_path)
+    key = next(k for k, entry in media_store.manifest().items()
+               if entry["tipo"] == "video")
+    video = tmp_path / key
+    video.write_bytes(b"\x00\x00\x00\x18ftypisom" + b"\x00" * 128)
+    calls = []
+
+    def fake_ffmpeg(argv, **kwargs):
+        calls.append(argv)
+        (tmp_path / argv[-1]).write_bytes(b"\xff\xd8\xff\xe0" + b"\x00" * 150)
+        return subprocess.CompletedProcess(argv, 0)
+
+    monkeypatch.setattr(media_store.subprocess, "run", fake_ffmpeg)
+    first = client.get("/media/" + key + "/poster")
+    assert first.status_code == 200
+    assert first.headers["content-type"].startswith("image/jpeg")
+    assert first.content.startswith(b"\xff\xd8\xff")
+    assert first.headers["cache-control"].startswith("public")
+    second = client.get("/media/" + key + "/poster")
+    assert second.status_code == 200
+    assert len(calls) == 1
+    assert video.exists()
+    assert (tmp_path / (key + ".poster.jpg")).exists()
+
+
+def test_missing_video_poster_does_not_download_video(monkeypatch, tmp_path):
+    import media_store
+
+    monkeypatch.setattr(media_store, "MEDIA_DIR", tmp_path)
+    video_key = next(k for k, entry in media_store.manifest().items()
+                     if entry["tipo"] == "video")
+    image_key = next(k for k, entry in media_store.manifest().items()
+                     if entry["tipo"] == "image")
+    assert client.get("/media/" + video_key + "/poster").status_code == 503
+    assert client.get("/media/" + image_key + "/poster").status_code == 404
+    assert client.get("/media/no-such-id/poster").status_code == 404
+
+
+def test_embedded_widget_uses_video_thumbnails_and_attribution():
+    script = client.get("/widget.js").text
+    assert "dc-video-tile" in script
+    assert "dc-video-poster" in script
+    assert "makeVideoDialog(shadow)" in script
+    assert "data.data.forEach(c => grid.append(drawCard(c, dialog.open)))" in script
+    assert "Comprador da Shopee" in script
+    assert "Comprador do Mercado Livre" in script
+    assert "Nome não divulgado" in script
+
+    review = client.get("/api/v1/comments", params={"canal": "TikTok"}).json()["data"][0]
+    video = next(m for m in review["midias_info"] if m["tipo"] == "video")
+    assert video["poster_url"] == video["url"] + "/poster"
