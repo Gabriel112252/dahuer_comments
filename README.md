@@ -2,6 +2,14 @@
 
 **Painel visual para landing pages já hospedado no Easypanel:** https://workspace-dahuer-comments.yu7gwy.easypanel.host/
 
+## Página demonstrativa de produto
+
+Após o deploy no Easypanel, abra **https://workspace-dahuer-comments.yu7gwy.easypanel.host/teste/protetor**.
+
+A página simula uma landing page do protetor solar Hidrabene, com ilustração de produto claramente identificada, sem ofertas comerciais. O bloco de avaliações usa **o mesmo `/widget.js`** do Studio e filtra `produto=Protetor` (38 avaliações provenientes de Shopee, Mercado Livre, TikTok e Amazon).
+
+Na página você pode testar os filtros de canal/estrelas/somente com mídia, reproduzir vídeos já importados, abrir URLs de imagem/vídeo `/media/...` e conferir `/api/v1/media/status` diretamente. Os vídeos do TikTok ainda pendentes podem não reproduzir; isso não afeta a página ou os comentários.
+
 ## Como usar sem programar
 
 1. Acesse o painel acima e escolha **produto**, marketplace, estrelas, quantidade de avaliações, fotos e tema.
