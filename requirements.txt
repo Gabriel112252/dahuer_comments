@@ -1,3 +1,4 @@
 fastapi>=0.115,<1.0
 uvicorn[standard]>=0.30,<1.0
 yt-dlp[default,curl-cffi]>=2026.8.19,<2027
+curl_cffi==0.16.0  # fingerprint anterior ao Chrome 150, relatado como funcional com TikTok
