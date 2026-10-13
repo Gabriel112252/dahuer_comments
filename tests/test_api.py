@@ -111,7 +111,7 @@ def test_tiktok_video_download_is_atomic(monkeypatch, tmp_path):
             calls.extend(urls)
             filename = self.opts['outtmpl'].replace('%(ext)s', 'mp4')
             with open(filename, 'wb') as f:
-                f.write(b'\\x00\\x00\\x00\\x18ftypisom' + b'v' * 100)
+                f.write(b'\x00\x00\x00\x18ftypisom' + b'v' * 100)
             return 0
     monkeypatch.setattr(tiktok_media, 'YoutubeDL', FakeYoutubeDL)
     dest = tmp_path / 'final_file'
