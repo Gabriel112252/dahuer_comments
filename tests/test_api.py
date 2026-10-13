@@ -75,12 +75,60 @@ def test_media_urls_are_from_our_domain():
     assert 'midias_originais' in with_media
 
 
-def test_tiktok_page_links_are_not_falsely_marked_as_hosted():
-    from media_store import manifest
-    assert len(manifest()) == 369
+def test_tiktok_video_pages_are_hosted_through_our_url():
+    from media_store import manifest, is_tiktok_video
+    data = manifest()
+    assert len(data) == 423
+    assert sum(is_tiktok_video(x['url']) for x in data.values()) == 54
     tiktok = client.get('/api/v1/comments', params={'canal': 'TikTok'}).json()['data']
-    assert all(not item['midias'] for item in tiktok)
-    assert any(item['midias_nao_hospedadas'] for item in tiktok)
+    assert len(tiktok) == 54
+    assert all(len(item['midias']) == 1 for item in tiktok)
+    assert all('/media/' in item['midias'][0] for item in tiktok)
+    assert all(item['midias_info'][0]['tipo'] == 'video' for item in tiktok)
+
+
+def test_tiktok_video_page_urls_are_validated():
+    from tiktok_media import is_tiktok_video
+    assert is_tiktok_video('https://www.tiktok.com/@demo/video/7693709444386950421')
+    assert not is_tiktok_video('https://www.tiktok.com/@demo/photo/7693709444386950421')
+    assert not is_tiktok_video('https://tiktok.com.evil.example/@demo/video/7693709444386950421')
+    assert not is_tiktok_video('http://www.tiktok.com/@demo/video/7693709444386950421')
+    assert not is_tiktok_video('https://www.tiktok.com/@demo/video/1')
+
+
+def test_tiktok_video_download_is_atomic(monkeypatch, tmp_path):
+    import tiktok_media
+    calls = []
+
+    class FakeYoutubeDL:
+        def __init__(self, opts):
+            self.opts = opts
+        def __enter__(self):
+            return self
+        def __exit__(self, *args):
+            return None
+        def download(self, urls):
+            calls.extend(urls)
+            filename = self.opts['outtmpl'].replace('%(ext)s', 'mp4')
+            with open(filename, 'wb') as f:
+                f.write(b'\\x00\\x00\\x00\\x18ftypisom' + b'v' * 100)
+            return 0
+    monkeypatch.setattr(tiktok_media, 'YoutubeDL', FakeYoutubeDL)
+    dest = tmp_path / 'final_file'
+    url = 'https://www.tiktok.com/@demo/video/7693709444386950421'
+    tiktok_media.fetch_tiktok_video(url, dest, 1000)
+    assert dest.exists()
+    assert dest.read_bytes()[4:8] == b'ftyp'
+    assert calls == [url]
+
+
+def test_tiktok_pending_does_not_fetch_while_user_waits(monkeypatch, tmp_path):
+    import media_store
+    monkeypatch.setattr(media_store, 'MEDIA_DIR', tmp_path)
+    key = next(k for k, item in media_store.manifest().items() if media_store.is_tiktok_video(item['url']))
+    response = client.get('/media/' + key)
+    assert response.status_code == 503
+    assert 'Retry-After' in response.headers
 
 
 def test_media_mirror_downloads_once_and_serves_locally(monkeypatch, tmp_path):
@@ -108,7 +156,8 @@ def test_media_mirror_downloads_once_and_serves_locally(monkeypatch, tmp_path):
     assert len(calls) == 1
     stats = client.get('/api/v1/media/status').json()
     assert stats['baixados'] >= 1
-    assert stats['total_importaveis'] == 369
+    assert stats['total_importaveis'] == 423
+    assert stats['total_tiktok'] == 54
     assert client.get('/media/deadbeef').status_code == 404
 
 
