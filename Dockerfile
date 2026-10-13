@@ -4,7 +4,7 @@ WORKDIR /app
 RUN apt-get update && apt-get install -y --no-install-recommends ffmpeg && rm -rf /var/lib/apt/lists/*
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt && useradd -r -u 10001 api
-COPY app.py media_store.py tiktok_media.py ./
+COPY app.py media_store.py tiktok_media.py review_db.py daily_collector.py ./
 COPY data ./data
 COPY site ./site
 RUN mkdir -p /app/media && chown -R api:api /app/media
