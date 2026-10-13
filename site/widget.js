@@ -5,6 +5,7 @@
   const defaultOrigin = script ? new URL(script.src).origin : location.origin;
   const running = new WeakMap();
   const videoDialogs = new WeakMap();
+  const imageDialogs = new WeakMap();
   const styles = `
     :host { display:block; color:#182a29; font:inherit; --dc-accent:#087d70; --dc-card:#fff; --dc-text:#172d2b; --dc-muted:#647773; --dc-border:#e5ece9; }
     :host([data-theme="dark"]) { --dc-accent:#63dfc1; --dc-card:#1f302f; --dc-text:#f2f7f5; --dc-muted:#a8bdb6; --dc-border:#40504d; }
@@ -38,9 +39,11 @@
     .dc-more { display:inline-block; border:0; background:none; color:var(--dc-accent); font:inherit; font-weight:700; font-size:12px; cursor:pointer; margin:7px 0 0; padding:0; }
     .dc-variant { font-size:11px; color:var(--dc-muted); margin-top:10px; }
     .dc-media { display:flex; gap:9px; margin-top:14px; flex-wrap:wrap; align-items:flex-start; }
-    .dc-media > a { display:block; flex:0 0 auto; }
-    .dc-media > a img { display:block; width:74px; height:94px; object-fit:cover; border-radius:11px; background:#edf2ef; border:1px solid var(--dc-border); transition:transform .15s; }
-    .dc-media > a:hover img { transform:translateY(-2px); }
+    .dc-photo-tile { display:block; position:relative; flex:0 0 auto; width:74px; height:94px; padding:0; border:1px solid var(--dc-border); border-radius:11px; overflow:hidden; cursor:zoom-in; background:#edf2ef; }
+    .dc-photo-tile img { display:block; width:100%; height:100%; object-fit:cover; transition:transform .15s; }
+    .dc-photo-tile:hover img { transform:scale(1.06); }
+    .dc-photo-tile::after { content:'↗'; position:absolute; right:5px; bottom:5px; color:#fff; font-size:13px; width:23px; height:23px; display:grid; place-items:center; border-radius:7px; background:#142d27ad; }
+    .dc-photo-tile:focus-visible { outline:3px solid #7ee9be; outline-offset:3px; }
     .dc-video-tile { position:relative; flex:0 0 auto; width:128px; height:170px; padding:0; border:1px solid var(--dc-border); border-radius:13px; overflow:hidden; cursor:pointer; background:linear-gradient(155deg,#45605c,#11201e 85%); color:#fff; text-align:center; box-shadow:0 6px 18px #00000018; transition:transform .17s ease,box-shadow .17s ease; }
     .dc-video-tile:hover { transform:translateY(-2px); box-shadow:0 10px 22px #0000002a; }
     .dc-video-tile:focus-visible,.dc-close:focus-visible { outline:3px solid #7ee9be; outline-offset:3px; }
@@ -56,11 +59,15 @@
     .dc-modal-top { display:flex; align-items:center; justify-content:space-between; gap:14px; padding:13px 16px; font:700 13px/1.4 Inter,system-ui,sans-serif; }
     .dc-close { border:1px solid #ffffff3b; background:#ffffff1a; color:#fff; font-size:19px; cursor:pointer; border-radius:50%; height:35px; width:35px; display:grid; place-items:center; }
     .dc-modal-video { display:block; width:100%; max-height:75vh; min-height:220px; background:#000; object-fit:contain; }
+    .dc-image-panel { width:min(760px,100%); }
+    .dc-modal-image { display:block; width:100%; max-height:78vh; min-height:160px; object-fit:contain; background:#091712; }
+    .dc-modal-image[hidden] { display:none!important; }
+    .dc-modal-caption { padding:11px 16px 16px; font:12px/1.5 Inter,system-ui,sans-serif; color:#c8e6d7; }
     .dc-modal-bottom { font:12px/1.5 Inter,system-ui,sans-serif; padding:11px 16px 15px; display:flex; gap:8px; justify-content:space-between; align-items:center; }
     .dc-modal-bottom a { color:#9beed3; text-decoration:none; font-weight:700; }
     .dc-video-error { color:#ffd0c2; font-size:12px; margin:0; padding:0 15px 12px; }
     .dc-video-error[hidden] { display:none!important; }
-    @media (prefers-reduced-motion:reduce) { .dc-video-tile,.dc-play,.dc-media > a img { transition:none; } }
+    @media (prefers-reduced-motion:reduce) { .dc-video-tile,.dc-play,.dc-photo-tile img { transition:none; } }
     @media (max-width:640px) { .dc-modal { padding:10px; } .dc-modal-panel { border-radius:14px; } }
 
     .dc-bottom { display:flex; margin-top:12px; justify-content:space-between; align-items:center; gap:10px; }
@@ -85,7 +92,7 @@
       return true;
     } catch (_) { return false; }
   }
-  function drawCard(c, openVideo) {
+  function drawCard(c, openVideo, openImage) {
     const card = el('article', 'dc-card');
     const person = el('div', 'dc-person');
     const author = (c.autor || '').trim();
@@ -155,13 +162,16 @@
           tile.addEventListener('click', () => openVideo(item.url, c.link, tile));
           media.append(tile);
         } else if (item.tipo === 'image') {
-          const a = el('a');
-          if (!setLink(a, c.link || item.url)) return;
+          const tile = el('button', 'dc-photo-tile');
+          tile.type = 'button';
+          tile.setAttribute('aria-label', 'Ampliar foto da avaliação ' + (i + 1));
           const img = el('img');
           img.loading = 'lazy'; img.decoding = 'async'; img.referrerPolicy = 'no-referrer';
           img.src = item.url; img.alt = 'Foto da avaliação ' + (i + 1);
-          img.addEventListener('error', () => a.remove());
-          a.append(img); media.append(a);
+          img.addEventListener('error', () => tile.remove());
+          tile.append(img);
+          tile.addEventListener('click', () => openImage(item.url, tile, i + 1));
+          media.append(tile);
         }
       });
       if (media.childNodes.length) card.append(media);
@@ -242,11 +252,76 @@
     return {open,close};
   }
 
+  function makeImageDialog(shadow) {
+    const modal = el('div', 'dc-modal');
+    modal.hidden = true;
+    modal.setAttribute('role', 'dialog');
+    modal.setAttribute('aria-modal', 'true');
+    modal.setAttribute('aria-label', 'Foto ampliada da avaliação');
+    const panel = el('div', 'dc-modal-panel dc-image-panel');
+    const top = el('div', 'dc-modal-top');
+    top.append(el('span', '', 'Foto da avaliação'));
+    const closeButton = el('button', 'dc-close', '×');
+    closeButton.type = 'button';
+    closeButton.setAttribute('aria-label', 'Fechar foto');
+    top.append(closeButton);
+    const photo = el('img', 'dc-modal-image');
+    photo.alt = 'Foto ampliada enviada na avaliação';
+    photo.hidden = true;
+    const failure = el('p', 'dc-video-error', 'Não foi possível carregar esta foto.');
+    failure.hidden = true;
+    photo.addEventListener('error', () => {
+      photo.hidden = true;
+      failure.hidden = false;
+    });
+    photo.addEventListener('load', () => { photo.hidden = false; });
+    panel.append(top, photo, failure, el('div', 'dc-modal-caption', 'Foto da avaliação • Toque fora da imagem para fechar'));
+    modal.append(panel);
+    shadow.append(modal);
+    let opener = null;
+    function onKeyDown(event) {
+      if (event.key === 'Escape') close();
+      if (event.key === 'Tab' && !modal.hidden) {
+        // O modal de foto só tem um controle interativo: o botão de fechar.
+        event.preventDefault();
+        closeButton.focus();
+      }
+    }
+    function close() {
+      if (modal.hidden) return;
+      modal.hidden = true;
+      photo.removeAttribute('src');
+      photo.hidden = true;
+      failure.hidden = true;
+      document.removeEventListener('keydown', onKeyDown);
+      if (opener && opener.isConnected) opener.focus();
+      opener = null;
+    }
+    function open(url, button, position) {
+      if (!/^https:\/\//i.test(url)) return;
+      opener = button;
+      failure.hidden = true;
+      photo.hidden = true;
+      photo.alt = 'Foto ampliada da avaliação ' + position;
+      modal.hidden = false;
+      photo.src = url;
+      document.addEventListener('keydown', onKeyDown);
+      closeButton.focus();
+    }
+    closeButton.addEventListener('click', close);
+    modal.addEventListener('click', event => {
+      if (event.target === modal) close();
+    });
+    return {open,close};
+  }
+
   async function mount(target, options) {
     const node = typeof target === 'string' ? document.getElementById(target) : target;
     if (!node) return;
     const previousDialog = videoDialogs.get(node);
     if (previousDialog) previousDialog.close();
+    const previousImageDialog = imageDialogs.get(node);
+    if (previousImageDialog) previousImageDialog.close();
     const opts = Object.assign({limit:6,theme:'light'}, options || {});
     const request = (running.get(node) || 0) + 1;
     running.set(node, request);
@@ -286,10 +361,12 @@
     wrap.append(header);
     if (!data.data.length) wrap.append(el('div','dc-status','Nenhuma avaliação encontrada para estes filtros.'));
     else {
-      const dialog = makeVideoDialog(shadow);
-      videoDialogs.set(node, dialog);
+      const videoDialog = makeVideoDialog(shadow);
+      const imageDialog = makeImageDialog(shadow);
+      videoDialogs.set(node, videoDialog);
+      imageDialogs.set(node, imageDialog);
       const grid = el('div','dc-grid');
-      data.data.forEach(c => grid.append(drawCard(c, dialog.open)));
+      data.data.forEach(c => grid.append(drawCard(c, videoDialog.open, imageDialog.open)));
       wrap.append(grid);
       wrap.append(el('p','dc-foot','Comentários de marketplaces • Consulte a fonte original em cada avaliação.'));
     }
