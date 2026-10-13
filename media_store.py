@@ -37,6 +37,7 @@ ID_RE = re.compile(r"^[a-f0-9]{32}$")
 MAX_IMAGE_BYTES = int(os.getenv("DAHUER_MAX_IMAGE_MB", "8")) * 1024 * 1024
 MAX_VIDEO_BYTES = int(os.getenv("DAHUER_MAX_VIDEO_MB", "48")) * 1024 * 1024
 RETRY_SECONDS = 12 * 3600
+TIKTOK_RETRY_STRATEGY = "ua-chrome145-firefox155-curl0160"
 LOGGER = logging.getLogger("dahuer.media")
 _locks_guard = threading.Lock()
 _download_locks: dict[str, threading.Lock] = {}
@@ -165,7 +166,12 @@ def get_errors() -> dict:
 def save_error(key: str, message: str) -> None:
     with _errors_lock:
         data = get_errors()
-        data[key] = {"timestamp": time.time(), "erro": str(message)[:180]}
+        url = manifest().get(key, {}).get("url", "")
+        data[key] = {
+            "timestamp": time.time(),
+            "erro": str(message)[:180],
+            "estrategia": TIKTOK_RETRY_STRATEGY if is_tiktok_video(url) else "cdn-v1",
+        }
         MEDIA_DIR.mkdir(parents=True, exist_ok=True)
         tmp = MEDIA_DIR / (".errors." + str(os.getpid()) + ".tmp")
         tmp.write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
@@ -236,7 +242,11 @@ def ensure_downloaded(key: str, *, retry_failed: bool = False) -> bool:
         if present(key):
             return True
         previous = get_errors().get(key)
-        if previous and not retry_failed and time.time() - previous.get("timestamp", 0) < RETRY_SECONDS:
+        is_tiktok = is_tiktok_video(manifest()[key]["url"])
+        updated_strategy = (
+            is_tiktok and previous and previous.get("estrategia") != TIKTOK_RETRY_STRATEGY
+        )
+        if previous and not retry_failed and not updated_strategy and time.time() - previous.get("timestamp", 0) < RETRY_SECONDS:
             return False
         try:
             MEDIA_DIR.mkdir(parents=True, exist_ok=True)
