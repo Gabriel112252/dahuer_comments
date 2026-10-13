@@ -62,7 +62,7 @@ def fetch_tiktok_video(url: str, destination: Path, max_bytes: int) -> None:
                 raise ValueError("Vídeo TikTok excede o limite de tamanho")
 
         opts = {
-            "format": "best[ext=mp4]/best",
+            "format": "best[ext=mp4][vcodec^=avc1]/best[ext=mp4][vcodec^=h264]/best[ext=mp4]/best",
             "outtmpl": str(output),
             "noplaylist": True,
             "quiet": True,
