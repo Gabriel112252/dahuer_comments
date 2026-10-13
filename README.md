@@ -65,6 +65,14 @@ python daily_collector.py --backfill
 
 O volume \`/app/media\` precisa ser preservado, incluindo o banco \`reviews.sqlite3\` e, se houver, os arquivos auxiliares \`-wal\`/\`-shm\`. Para migração, faça backup SQLite consistente. Mantenha só uma réplica do serviço, limite chamadas às APIs e cumpra termos das plataformas e direitos dos autores antes de usar as avaliações/mídias em campanhas.
 
+## Novo player visual e autores anônimos
+
+Os vídeos nas LPs aparecem agora como **miniaturas com quadro real extraído via FFmpeg**, com botão central para assistir. O clique abre uma janela ampliada com controles nativos de reprodução; ao fechar, a reprodução é interrompida. As capas ficam persistidas no volume `/app/media` e são servidas via `GET /media/{id}/poster`.
+
+Essa miniatura só é criada quando o arquivo de vídeo já está baixado. Para um vídeo ainda bloqueado ou pendente, o widget exibe um visual neutro; a LP não faz download direto do TikTok. O vídeo só é carregado quando o visitante pede para assistir.
+
+**Autores:** os 74 comentários iniciais da Shopee e os 60 iniciais do Mercado Livre vieram com o nome genérico `Cliente`. O widget **não inventa identidades**: mostra "Comprador da Shopee", "Comprador do Mercado Livre" ou a indicação equivalente, com a origem explícita. Quando uma nova fonte trouxer nome público válido, ele é exibido normalmente.
+
 ## Página demonstrativa de produto
 
 Após o deploy no Easypanel, abra **https://workspace-dahuer-comments.yu7gwy.easypanel.host/teste/protetor**.
