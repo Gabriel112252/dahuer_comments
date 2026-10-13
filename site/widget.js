@@ -135,6 +135,9 @@
     if (opts.nota) params.set('nota',opts.nota);
     if (opts.q) params.set('q',opts.q);
     if (opts.com_midia) params.set('com_midia','true');
+    if (opts.com_video) params.set('com_video','true');
+    params.set('ordem',opts.ordem === 'antigas' ? 'antigas' : 'recentes');
+    if (opts.priorizar_video) params.set('priorizar_video','true');
     let data;
     try {
       const base = opts.apiBase || defaultOrigin;
@@ -172,6 +175,9 @@
       nota:script.dataset.nota || '',
       q:script.dataset.q || '',
       com_midia:script.dataset.comMidia === 'true',
+      com_video:script.dataset.comVideo === 'true',
+      priorizar_video:script.dataset.priorizarVideo === 'true',
+      ordem:script.dataset.ordem || 'recentes',
       limit:script.dataset.limit || '6',
       theme:script.dataset.theme || 'light',
       apiBase:defaultOrigin
