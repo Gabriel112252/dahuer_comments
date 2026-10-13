@@ -263,3 +263,82 @@ def test_product_test_lp_has_real_reviews():
         'TikTok', 'Shopee', 'Mercado Livre', 'Amazon',
     }
     assert any(c['midias_info'] for c in result['data'])
+
+
+
+def test_comments_date_sort_and_video_priority():
+    from app import sort_comments
+    items = [
+        {"id": "old", "data_iso": "2026-09-01T02:00:00+00:00", "com_video": True},
+        {"id": "new", "data_iso": "2026-10-12T02:00:00+00:00", "com_video": False},
+        {"id": "unknown", "data_iso": None, "com_video": False},
+    ]
+    assert [r["id"] for r in sort_comments(items)] == ["new", "old", "unknown"]
+    assert [r["id"] for r in sort_comments(items, priorizar_video=True)] == ["old", "new", "unknown"]
+    assert [r["id"] for r in sort_comments(items, ordem="antigas")] == ["old", "new", "unknown"]
+
+
+def test_relative_dates_have_no_invented_timestamp():
+    import review_db
+    assert review_db.normalize_date("Há 1 mês") is None
+    assert review_db.normalize_date("01/10/2026").startswith("2026-10-01")
+    assert review_db.normalize_date("2026-10-09T04:21:00Z").startswith("2026-10-09T04:21:00")
+
+
+def test_sqlite_incremental_dedup_and_media(monkeypatch, tmp_path):
+    import review_db
+    import media_store
+    monkeypatch.setattr(review_db, "DB_PATH", tmp_path / "test-reviews.sqlite3")
+    entry = {
+        "source_key": "shopee:review-987",
+        "canal": "Shopee", "produto": "Protetor", "nota": 5,
+        "data": "2026-10-13", "timestamp_utc": "2026-10-13T09:00:00Z",
+        "autor": "Cliente", "texto": "Nova avaliação com vídeo de teste",
+        "link": "https://shopee.com.br/product/1860098702/58214668571",
+        "variacao": "", "tem_foto_ou_video": "vídeo",
+        "midia_links": "https://down-aka-br.vod.susercontent.com/video-test.mp4",
+        "midia_arquivos": "",
+    }
+    assert review_db.insert_reviews([entry], set()) == 1
+    assert review_db.insert_reviews([entry], set()) == 0
+    rows = review_db.extra_reviews()
+    assert len(rows) == 1
+    assert rows[0]["com_video"] is True
+    assert rows[0]["data_iso"].startswith("2026-10-13")
+    media_store.manifest.cache_clear()
+    assert any(info["url"] == entry["midia_links"] for info in media_store.manifest().values())
+    media_store.manifest.cache_clear()
+
+
+def test_shopee_and_ml_collectors_parse_video_sources():
+    import daily_collector
+    shopee_products = {"123": {"produto": "Protetor", "url": "https://shopee.com.br/product/9/123"}}
+    shopee = daily_collector.from_shopee({
+        "type": "review", "reviewId": "9112", "productId": "123",
+        "rating": 5, "text": "Com vídeo", "reviewerName": "alguem",
+        "createdAt": "2026-10-11T18:00:00Z",
+        "videoUrls": ["https://down-br.vod.susercontent.com/video.mp4"], "imageUrls": [],
+    }, shopee_products)
+    assert shopee["source_key"] == "shopee:9112"
+    assert shopee["tem_foto_ou_video"] == "vídeo"
+    ml = daily_collector.from_mercadolivre({
+        "produto": "Protetor", "link": "https://www.mercadolivre.com.br/p/MLB123"
+    }, {
+        "id": 23, "date_created": "2026-10-13T08:00:00Z",
+        "status": "published", "rate": 4, "title": "Gostei",
+        "content": "Produto bom", "videos": [{"url": "https://video-vod-clips.mms.mlstatic.com/abc.mp4"}],
+    })
+    assert ml["source_key"] == "mercadolivre:23"
+    assert "video-vod" in ml["midia_links"]
+
+
+def test_daily_schedule_and_collector_status():
+    from datetime import datetime
+    from zoneinfo import ZoneInfo
+    from daily_collector import next_schedule
+    now = datetime(2026, 10, 13, 4, 0, tzinfo=ZoneInfo("America/Sao_Paulo"))
+    assert next_schedule(now).isoformat().startswith("2026-10-14T03:00")
+    status = client.get("/api/v1/collector/status")
+    assert status.status_code == 200
+    assert "03:00" in status.json()["agendamento"]
+    assert status.json()["descoberta_tiktok"] is False
