@@ -106,7 +106,7 @@
     const meta = el('div', 'dc-person-meta');
     meta.append(el('div', 'dc-name', anonymous ? anonymousLabel : author),
       el('div', 'dc-source', anonymous
-        ? 'Nome não divulgado · ' + (c.produto || 'Produto')
+        ? 'Nome não informado · ' + (c.produto || 'Produto')
         : platform + ' · ' + (c.produto || 'Produto')));
     person.append(avatar, meta);
     card.append(person);
