@@ -4,6 +4,7 @@
   const script = document.currentScript;
   const defaultOrigin = script ? new URL(script.src).origin : location.origin;
   const running = new WeakMap();
+  const videoDialogs = new WeakMap();
   const styles = `
     :host { display:block; color:#182a29; font:inherit; --dc-accent:#087d70; --dc-card:#fff; --dc-text:#172d2b; --dc-muted:#647773; --dc-border:#e5ece9; }
     :host([data-theme="dark"]) { --dc-accent:#63dfc1; --dc-card:#1f302f; --dc-text:#f2f7f5; --dc-muted:#a8bdb6; --dc-border:#40504d; }
@@ -28,9 +29,32 @@
     .dc-text.clamp { display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:5; overflow:hidden; }
     .dc-more { display:inline-block; border:0; background:none; color:var(--dc-accent); font:inherit; font-weight:700; font-size:12px; cursor:pointer; margin:7px 0 0; padding:0; }
     .dc-variant { font-size:11px; color:var(--dc-muted); margin-top:10px; }
-    .dc-media { display:flex; gap:6px; margin-top:12px; overflow:hidden; }
-    .dc-media img { width:67px; height:67px; object-fit:cover; border-radius:9px; background:#edf2ef; border:1px solid var(--dc-border); }
-    .dc-media video { width:130px; height:98px; max-width:100%; object-fit:cover; border-radius:9px; background:#101b1b; border:1px solid var(--dc-border); }
+    .dc-media { display:flex; gap:9px; margin-top:14px; flex-wrap:wrap; align-items:flex-start; }
+    .dc-media > a { display:block; flex:0 0 auto; }
+    .dc-media > a img { display:block; width:74px; height:94px; object-fit:cover; border-radius:11px; background:#edf2ef; border:1px solid var(--dc-border); transition:transform .15s; }
+    .dc-media > a:hover img { transform:translateY(-2px); }
+    .dc-video-tile { position:relative; flex:0 0 auto; width:128px; height:170px; padding:0; border:1px solid var(--dc-border); border-radius:13px; overflow:hidden; cursor:pointer; background:linear-gradient(155deg,#45605c,#11201e 85%); color:#fff; text-align:center; box-shadow:0 6px 18px #00000018; transition:transform .17s ease,box-shadow .17s ease; }
+    .dc-video-tile:hover { transform:translateY(-2px); box-shadow:0 10px 22px #0000002a; }
+    .dc-video-tile:focus-visible,.dc-close:focus-visible { outline:3px solid #7ee9be; outline-offset:3px; }
+    .dc-video-poster { position:absolute; inset:0; width:100%; height:100%; display:block; object-fit:cover; }
+    .dc-video-shade { position:absolute; inset:0; background:linear-gradient(180deg,#0005 0%,transparent 38%,#000b 100%); }
+    .dc-video-badge { position:absolute; top:9px; left:9px; font-size:9px; font-weight:800; letter-spacing:.045em; color:#fff; background:#0009; border:1px solid #fff4; border-radius:99px; padding:5px 8px; }
+    .dc-play { position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); width:48px; height:48px; border-radius:50%; background:#fffffff2; color:#164e3e; display:grid; place-items:center; padding-left:3px; box-shadow:0 6px 22px #0004; font-size:21px; font-weight:900; transition:transform .17s; }
+    .dc-video-tile:hover .dc-play { transform:translate(-50%,-50%) scale(1.08); }
+    .dc-video-caption { position:absolute; bottom:11px; left:10px; right:10px; color:#fff; font-size:11px; line-height:1.3; font-weight:750; text-align:left; text-shadow:0 1px 5px #0009; }
+    .dc-modal[hidden] { display:none!important; }
+    .dc-modal { position:fixed; inset:0; z-index:2147483647; background:#06110eea; padding:24px; display:flex; align-items:center; justify-content:center; }
+    .dc-modal-panel { position:relative; background:#13201c; color:#fff; border:1px solid #ffffff2b; border-radius:20px; width:min(440px,100%); max-height:95vh; overflow:hidden; box-shadow:0 24px 70px #0009; }
+    .dc-modal-top { display:flex; align-items:center; justify-content:space-between; gap:14px; padding:13px 16px; font:700 13px/1.4 Inter,system-ui,sans-serif; }
+    .dc-close { border:1px solid #ffffff3b; background:#ffffff1a; color:#fff; font-size:19px; cursor:pointer; border-radius:50%; height:35px; width:35px; display:grid; place-items:center; }
+    .dc-modal-video { display:block; width:100%; max-height:75vh; min-height:220px; background:#000; object-fit:contain; }
+    .dc-modal-bottom { font:12px/1.5 Inter,system-ui,sans-serif; padding:11px 16px 15px; display:flex; gap:8px; justify-content:space-between; align-items:center; }
+    .dc-modal-bottom a { color:#9beed3; text-decoration:none; font-weight:700; }
+    .dc-video-error { color:#ffd0c2; font-size:12px; margin:0; padding:0 15px 12px; }
+    .dc-video-error[hidden] { display:none!important; }
+    @media (prefers-reduced-motion:reduce) { .dc-video-tile,.dc-play,.dc-media > a img { transition:none; } }
+    @media (max-width:640px) { .dc-modal { padding:10px; } .dc-modal-panel { border-radius:14px; } }
+
     .dc-bottom { display:flex; margin-top:12px; justify-content:space-between; align-items:center; gap:10px; }
     .dc-link { color:var(--dc-accent); font-size:11px; text-decoration:none; font-weight:700; }
     .dc-link:hover { text-decoration:underline; }
@@ -53,17 +77,20 @@
       return true;
     } catch (_) { return false; }
   }
-  function drawCard(c) {
+  function drawCard(c, openVideo) {
     const card = el('article', 'dc-card');
     const person = el('div', 'dc-person');
     const author = (c.autor || '').trim();
-    const anonymous = !author || author.toLocaleLowerCase('pt-BR') === 'cliente';
     const platform = (c.canal || 'Marketplace').trim();
-    const avatar = el('span', 'dc-avatar' + (anonymous ? ' dc-avatar-platform' : ''), anonymous ? '★' : author.charAt(0).toUpperCase());
+    const normalizedAuthor = author.toLocaleLowerCase('pt-BR');
+    const anonymous = !author || /^(cliente(?:\\s+\\d+)?|anônimo|anonimo|anonymous|usuário|usuario|sem nome|não informado|nao informado)$/i.test(normalizedAuthor);
+    const anonymousLabel = platform === 'TikTok' ? 'Autor no TikTok' : 'Comprador da ' + platform;
+    const initial = anonymous ? platform.charAt(0).toUpperCase() : author.charAt(0).toUpperCase();
+    const avatar = el('span', 'dc-avatar' + (anonymous ? ' dc-avatar-platform' : ''), initial);
     const meta = el('div', 'dc-person-meta');
-    meta.append(el('div', 'dc-name', anonymous ? platform : author),
+    meta.append(el('div', 'dc-name', anonymous ? anonymousLabel : author),
       el('div', 'dc-source', anonymous
-        ? 'Avaliação publicada · ' + (c.produto || 'Produto')
+        ? 'Nome não divulgado · ' + (c.produto || 'Produto')
         : platform + ' · ' + (c.produto || 'Produto')));
     person.append(avatar, meta);
     card.append(person);
@@ -92,12 +119,25 @@
       mediaItems.forEach((item, i) => {
         if (!item || typeof item.url !== 'string' || !/^https:\/\//i.test(item.url)) return;
         if (item.tipo === 'video') {
-          const video = el('video');
-          video.preload = 'none'; video.controls = true; video.playsInline = true;
-          video.setAttribute('aria-label', 'Vídeo da avaliação ' + (i + 1));
-          video.src = item.url;
-          video.addEventListener('error', () => video.remove());
-          media.append(video);
+          const tile = el('button', 'dc-video-tile');
+          tile.type = 'button';
+          tile.setAttribute('aria-label', 'Reproduzir vídeo da avaliação ' + (i + 1));
+          const coverUrl = typeof item.poster_url === 'string' && item.poster_url.startsWith('https://')
+            ? item.poster_url : item.url + '/poster';
+          if (/\/media\/[a-f0-9]{32}\/poster(?:\?|$)/i.test(coverUrl)) {
+            const image = el('img', 'dc-video-poster');
+            image.loading = 'lazy'; image.decoding = 'async';
+            image.alt = '';
+            image.src = coverUrl;
+            image.addEventListener('error', () => image.remove());
+            tile.append(image);
+          }
+          tile.append(el('span', 'dc-video-shade'),
+            el('span', 'dc-video-badge', 'VÍDEO'),
+            el('span', 'dc-play', '▶'),
+            el('span', 'dc-video-caption', 'Assistir à avaliação'));
+          tile.addEventListener('click', () => openVideo(item.url, c.link, tile));
+          media.append(tile);
         } else if (item.tipo === 'image') {
           const a = el('a');
           if (!setLink(a, c.link || item.url)) return;
@@ -117,9 +157,80 @@
     card.append(footer);
     return card;
   }
+  function makeVideoDialog(shadow) {
+    const modal = el('div', 'dc-modal');
+    modal.hidden = true;
+    modal.setAttribute('role', 'dialog');
+    modal.setAttribute('aria-modal', 'true');
+    modal.setAttribute('aria-label', 'Reprodutor de vídeo da avaliação');
+    const panel = el('div', 'dc-modal-panel');
+    const top = el('div', 'dc-modal-top');
+    top.append(el('span', '', 'Vídeo da avaliação'));
+    const closeButton = el('button', 'dc-close', '×');
+    closeButton.type = 'button';
+    closeButton.setAttribute('aria-label', 'Fechar vídeo');
+    top.append(closeButton);
+    const video = el('video', 'dc-modal-video');
+    video.controls = true;
+    video.playsInline = true;
+    video.preload = 'none';
+    video.setAttribute('aria-label', 'Vídeo enviado com a avaliação');
+    const errorText = el('p', 'dc-video-error', 'Este vídeo ainda não está disponível no nosso servidor.');
+    errorText.hidden = true;
+    video.addEventListener('error', () => { errorText.hidden = false; });
+    const bottom = el('div', 'dc-modal-bottom');
+    bottom.append(el('span', '', 'Avaliação publicada em marketplace'));
+    const original = el('a', '', 'Ver original ↗');
+    bottom.append(original);
+    panel.append(top, video, errorText, bottom);
+    modal.append(panel);
+    shadow.append(modal);
+    let opener = null;
+    function onKeyDown(e) {
+      if (e.key === 'Escape') close();
+      if (e.key === 'Tab' && !modal.hidden) {
+        const focusables = [...panel.querySelectorAll('button, a[href], video[controls]')];
+        const first = focusables[0], last = focusables[focusables.length - 1];
+        if (e.shiftKey && document.activeElement === first) {
+          e.preventDefault(); last.focus();
+        } else if (!e.shiftKey && document.activeElement === last) {
+          e.preventDefault(); first.focus();
+        }
+      }
+    }
+    function close() {
+      if (modal.hidden) return;
+      modal.hidden = true;
+      video.pause();
+      video.removeAttribute('src');
+      video.load();
+      document.removeEventListener('keydown', onKeyDown);
+      if (opener && opener.isConnected) opener.focus();
+      opener = null;
+    }
+    function open(url, link, button) {
+      if (!/^https:\/\//i.test(url)) return;
+      opener = button;
+      errorText.hidden = true;
+      const valid = setLink(original, link || '');
+      original.hidden = !valid;
+      video.src = url;
+      modal.hidden = false;
+      document.addEventListener('keydown', onKeyDown);
+      closeButton.focus();
+      const playing = video.play();
+      if (playing && typeof playing.catch === 'function') playing.catch(() => {});
+    }
+    closeButton.addEventListener('click', close);
+    modal.addEventListener('click', (event) => { if (event.target === modal) close(); });
+    return {open,close};
+  }
+
   async function mount(target, options) {
     const node = typeof target === 'string' ? document.getElementById(target) : target;
     if (!node) return;
+    const previousDialog = videoDialogs.get(node);
+    if (previousDialog) previousDialog.close();
     const opts = Object.assign({limit:6,theme:'light'}, options || {});
     const request = (running.get(node) || 0) + 1;
     running.set(node, request);
@@ -159,8 +270,10 @@
     wrap.append(header);
     if (!data.data.length) wrap.append(el('div','dc-status','Nenhuma avaliação encontrada para estes filtros.'));
     else {
+      const dialog = makeVideoDialog(shadow);
+      videoDialogs.set(node, dialog);
       const grid = el('div','dc-grid');
-      data.data.forEach(c => grid.append(drawCard(c)));
+      data.data.forEach(c => grid.append(drawCard(c, dialog.open)));
       wrap.append(grid);
       wrap.append(el('p','dc-foot','Comentários de marketplaces • Consulte a fonte original em cada avaliação.'));
     }
