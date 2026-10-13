@@ -170,6 +170,10 @@
           <label class="check" for="only-media"><input type="checkbox" id="only-media"> Somente com mídia</label>
         </div>
         <div class="state-row">
+          <label class="check" for="video-first"><input type="checkbox" id="video-first"> Avaliações com vídeo primeiro</label>
+          <label class="check" for="only-video"><input type="checkbox" id="only-video"> Somente vídeos</label>
+        </div>
+        <div class="state-row">
           <span id="widget-state" role="status" aria-live="polite">Carregando comentários do Protetor...</span>
           <span>Fonte: <b>/api/v1/comments?produto=Protetor</b></span>
         </div>
@@ -196,6 +200,8 @@
     const rating = get('rating');
     const limit = get('limit');
     const onlyMedia = get('only-media');
+    const videoFirst = get('video-first');
+    const onlyVideo = get('only-video');
     let currentRequest = 0;
 
     function options() {
@@ -205,6 +211,9 @@
         nota: rating.value,
         limit: Number(limit.value),
         com_midia: onlyMedia.checked,
+        com_video: onlyVideo.checked,
+        priorizar_video: videoFirst.checked,
+        ordem: 'recentes',
         theme: 'light',
         title: 'Avaliações do Protetor Solar',
         onResult: result => {
@@ -225,6 +234,8 @@
       if (channel.value) params.set('canal',channel.value);
       if (rating.value) params.set('nota',rating.value);
       if (onlyMedia.checked) params.set('com_midia','true');
+      if (onlyVideo.checked) params.set('com_video','true');
+      if (videoFirst.checked) params.set('priorizar_video','true');
       try {
         const response = await fetch('/api/v1/comments?' + params.toString());
         if (!response.ok) throw new Error('Erro na API');
@@ -260,7 +271,7 @@
       updateLinks();
     }
 
-    [channel,rating,limit,onlyMedia].forEach(control=>control.addEventListener('change',render));
+    [channel,rating,limit,onlyMedia,videoFirst,onlyVideo].forEach(control=>control.addEventListener('change',render));
 
     fetch('/api/v1/comments?produto=Protetor&per_page=1')
       .then(r=>r.json()).then(r=>{get('review-count').textContent=r.total;})
