@@ -190,8 +190,17 @@ def media_status():
 
 @app.get('/media/{media_id}', tags=['Mídias'])
 def hosted_media(media_id: str):
-    if media_id not in media_store.manifest():
+    entry = media_store.manifest().get(media_id)
+    if not entry:
         raise HTTPException(status_code=404, detail="Mídia não encontrada")
+    # TikTok é importado pelo job de fundo; requests das LPs não ficam
+    # aguardando extração demorada nem iniciam downloads concorrentes.
+    if media_store.is_tiktok_video(entry["url"]) and not media_store.present(media_id):
+        raise HTTPException(
+            status_code=503,
+            detail="Vídeo TikTok em processamento ou indisponível",
+            headers={"Retry-After": "300", "Cache-Control": "no-store"},
+        )
     if not media_store.ensure_downloaded(media_id):
         raise HTTPException(
             status_code=503,
