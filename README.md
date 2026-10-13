@@ -54,11 +54,13 @@ DAHUER_COLLECTOR_MAX_PER_SOURCE=300
 DAHUER_COLLECTOR_DELAY=1.25
 \`\`\`
 
-O limite padrão do ator Shopee é 100 avaliações por produto por execução; o Mercado Livre consulta até 300 por anúncio. Isso evita carga ilimitada e deve ser ajustado conforme custo e cobertura. Para rodar um teste pontual **depois de configurar as credenciais**, execute no contêiner:
+O limite padrão do ator Shopee é 100 avaliações por produto por execução; o Mercado Livre consulta até 300 por anúncio. Para o backfill manual, os limites padrão são até 500 por produto na Shopee (orçamento até US$5 por execução) e 1.000 por anúncio no Mercado Livre, sujeitos à disponibilidade e aos limites da plataforma. O backfill não é agendado automaticamente para evitar consumo elevado. Isso evita carga ilimitada e deve ser ajustado conforme custo e cobertura. Para rodar um teste pontual **depois de configurar as credenciais**, execute no contêiner:
 
 \`\`\`bash
 python daily_collector.py --status
 python daily_collector.py --once
+# Opcional: coletar histórico mais antigo, com limites e possíveis cobranças:
+python daily_collector.py --backfill
 \`\`\`
 
 O volume \`/app/media\` precisa ser preservado, incluindo o banco \`reviews.sqlite3\` e, se houver, os arquivos auxiliares \`-wal\`/\`-shm\`. Para migração, faça backup SQLite consistente. Mantenha só uma réplica do serviço, limite chamadas às APIs e cumpra termos das plataformas e direitos dos autores antes de usar as avaliações/mídias em campanhas.
