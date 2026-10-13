@@ -3,3 +3,7 @@ __pycache__/
 .pytest_cache/
 *.pyc
 .env
+media/
+*.sqlite3
+*.sqlite3-wal
+*.sqlite3-shm
