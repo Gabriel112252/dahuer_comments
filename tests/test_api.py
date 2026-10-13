@@ -401,3 +401,19 @@ def test_embedded_widget_uses_video_thumbnails_and_attribution():
     review = client.get("/api/v1/comments", params={"canal": "TikTok"}).json()["data"][0]
     video = next(m for m in review["midias_info"] if m["tipo"] == "video")
     assert video["poster_url"] == video["url"] + "/poster"
+
+
+
+def test_review_images_open_local_lightbox_not_marketplace():
+    script = client.get('/widget.js').text
+    assert "function makeImageDialog(shadow)" in script
+    assert "const tile = el('button', 'dc-photo-tile')" in script
+    assert "tile.addEventListener('click', () => openImage(item.url, tile, i + 1))" in script
+    assert "data.data.forEach(c => grid.append(drawCard(c, videoDialog.open, imageDialog.open)))" in script
+    assert "setLink(a, c.link || item.url)" not in script
+    assert "Ver avaliação original ↗" in script
+    assert "if (setLink(source, c.link)) footer.append(source)" in script
+    assert "photo.src = url" in script
+    assert "photo.removeAttribute('src')" in script
+    assert "event.key === 'Escape'" in script
+    assert "imageDialogs.set(node, imageDialog)" in script
