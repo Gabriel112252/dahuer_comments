@@ -98,7 +98,9 @@
           <div class="field"><label for="busca">Palavra-chave (opcional)</label><input id="busca" type="search" placeholder="Ex.: textura, entrega, clareamento" maxlength="150"></div>
           <div class="field"><label for="tema">Aparência</label><select id="tema"><option value="light">Clara</option><option value="dark">Escura</option></select></div>
           <label class="toggle"><input id="midia" type="checkbox"> Mostrar somente avaliações com fotos ou vídeos</label>
-          <div class="tip">💡 As avaliações têm autoria e marketplace identificados, com link para conferir a publicação original. As imagens dependem dos links das plataformas.</div>
+          <label class="toggle"><input id="video" type="checkbox"> Mostrar apenas avaliações com vídeo</label>
+          <label class="toggle"><input id="video-priority" type="checkbox"> Destacar avaliações com vídeo primeiro</label>
+          <div class="tip">💡 As avaliações têm autoria e marketplace identificados, com link para conferir a publicação original. As mídias são servidas pelo nosso domínio quando o arquivo está disponível.</div>
           <hr>
           <span class="step">02 · Incorporar na LP</span><h3 style="margin-top:9px">Código pronto para copiar</h3>
           <textarea id="codigo" class="copybox" readonly aria-label="Código de incorporação" placeholder="Selecione um produto para gerar o código."></textarea>
@@ -128,7 +130,7 @@
   <script>
     (function(){
       'use strict';
-      const ids=['produto','canal','nota','limite','busca','tema','midia'];
+      const ids=['produto','canal','nota','limite','busca','tema','midia','video','video-priority'];
       const fields=Object.fromEntries(ids.map(id=>[id,document.getElementById(id)]));
       const snippetBox=document.getElementById('codigo');
       const preview=document.getElementById('review-preview');
@@ -144,6 +146,9 @@
         if(fields.nota.value)p.set('nota',fields.nota.value);
         if(fields.busca.value.trim())p.set('q',fields.busca.value.trim());
         if(fields.midia.checked)p.set('com_midia','true');
+        if(fields.video.checked)p.set('com_video','true');
+        if(fields['video-priority'].checked)p.set('priorizar_video','true');
+        p.set('ordem','recentes');
         if(includePage)p.set('per_page',fields.limite.value);
         return p;
       }
@@ -156,6 +161,8 @@
         if(fields.nota.value)attrs.push('data-nota="'+fields.nota.value+'"');
         if(fields.busca.value.trim())attrs.push('data-q="'+escapeAttr(fields.busca.value.trim())+'"');
         if(fields.midia.checked)attrs.push('data-com-midia="true"');
+        if(fields.video.checked)attrs.push('data-com-video="true"');
+        if(fields['video-priority'].checked)attrs.push('data-priorizar-video="true"');
         return '<div id="dahuer-avaliacoes"></div>\n'
           + '<scr'+'ipt defer src="'+location.origin+'/widget.js" '+attrs.join(' ')+'></scr'+'ipt>';
       }
@@ -173,7 +180,9 @@
         results.textContent='Carregando…';
         window.DahuerComments.mount(preview,{
           produto:fields.produto.value,canal:fields.canal.value,nota:fields.nota.value,q:fields.busca.value.trim(),
-          com_midia:fields.midia.checked,limit:Number(fields.limite.value),theme:fields.tema.value,
+          com_midia:fields.midia.checked,com_video:fields.video.checked,
+          priorizar_video:fields['video-priority'].checked,ordem:'recentes',
+          limit:Number(fields.limite.value),theme:fields.tema.value,
           onResult:r=>{results.textContent=r.error?'Falha ao carregar':r.total+' avaliações encontradas';}
         });
       }
