@@ -175,3 +175,66 @@ def test_media_html_is_rejected(monkeypatch, tmp_path):
     response = client.get('/media/' + key)
     assert response.status_code == 503
     assert not (tmp_path / key).exists()
+
+
+def test_tiktok_tries_alternative_browser_when_webpage_fails(monkeypatch, tmp_path):
+    import tiktok_media
+
+    attempts = []
+
+    class MockYoutubeDL:
+        def __init__(self, options):
+            self.options = options
+        def __enter__(self):
+            return self
+        def __exit__(self, *args):
+            return False
+        def download(self, urls):
+            attempts.append(self.options["http_headers"]["User-Agent"])
+            if len(attempts) == 1:
+                raise RuntimeError("Unexpected response from webpage request")
+            filename = self.options["outtmpl"].replace("%(ext)s", "mp4")
+            with open(filename, "wb") as output:
+                output.write(b"\x00\x00\x00\x18ftypisom" + b"v" * 80)
+            return 0
+
+    monkeypatch.setattr(tiktok_media, "YoutubeDL", MockYoutubeDL)
+    target = tmp_path / "tiktok-test"
+    tiktok_media.fetch_tiktok_video(
+        "https://www.tiktok.com/@demo/video/7693709444386950421",
+        target, 1000,
+    )
+    assert target.exists()
+    assert len(attempts) == 2
+    assert "Chrome/145" in attempts[0]
+    assert "Firefox/155" in attempts[1]
+
+
+def test_old_tiktok_error_is_retried_when_strategy_changes(monkeypatch, tmp_path):
+    import json
+    import time
+    import media_store
+
+    monkeypatch.setattr(media_store, "MEDIA_DIR", tmp_path)
+    key = next(
+        key for key, media in media_store.manifest().items()
+        if media_store.is_tiktok_video(media["url"])
+    )
+    (tmp_path / ".errors.json").write_text(
+        json.dumps({key: {
+            "timestamp": time.time(),
+            "erro": "Falha do extrator TikTok: Unexpected response",
+        }}), encoding="utf-8",
+    )
+    attempts = []
+
+    def mock_download(media_id):
+        attempts.append(media_id)
+        (tmp_path / media_id).write_bytes(
+            b"\x00\x00\x00\x18ftypisom" + b"v" * 80
+        )
+
+    monkeypatch.setattr(media_store, "_fetch", mock_download)
+    assert media_store.ensure_downloaded(key)
+    assert attempts == [key]
+    assert key not in media_store.get_errors()
