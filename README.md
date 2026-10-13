@@ -24,11 +24,11 @@ A API agora transforma as URLs diretas de fotos e vídeos dos marketplaces em **
 \`https://workspace-dahuer-comments.yu7gwy.easypanel.host/media/<id>\`
 
 - A importação começa **automaticamente em segundo plano após o deploy**, primeiro imagens, depois vídeos.
-- O endpoint \`GET /api/v1/media/status\` indica quantos arquivos estão baixados, pendentes e com falha.
+- \`GET /api/v1/media/status\` mostra o progresso geral e os campos \`total_tiktok\`, \`baixados_tiktok\` e \`pendentes_tiktok\`.
 - \`midias\`, \`midias_info\` e \`midia_links\` na API/JSON/CSV de download usam nossos links. Os valores antigos são preservados em \`midias_originais\`/\`midia_links_originais\` no JSON.
 - O widget utiliza nossos links e exibe imagens e vídeos com controles de reprodução.
-- O endpoint \`GET /media/<id>\` também pode buscar um arquivo no primeiro acesso, com limites de tamanho e origem. Se um original estiver indisponível, retorna \`503\` em vez de redirecionar para o marketplace.
-- Foram encontradas **423 referências**, sendo **369 URLs diretas compatíveis para tentativa de importação**. Outras **54 URLs do TikTok são páginas de vídeos**, não arquivos de mídia; são identificadas em \`midias_nao_hospedadas\` e precisam de arquivo original ou autorização/acesso específico para importação.
+- O endpoint \`GET /media/<id>\` baixa arquivos diretos no primeiro acesso. Para TikTok, a extração roda somente em segundo plano, sem travar as LPs. Mídias não disponíveis retornam \`503\`.
+- São **423 referências**: 369 URLs diretas e **54 páginas de vídeos TikTok**. O [yt-dlp](https://github.com/yt-dlp/yt-dlp) tenta baixar os vídeos públicos e salvá-los no volume persistente. Bloqueios, vídeos removidos ou restrições podem impedir parte dos downloads.
 - O download de cada mídia depende de sua disponibilidade e das permissões do servidor remoto; uma referência não comprova que o arquivo foi importado.
 - O espelho não armazena avaliações novas automaticamente: a base vem dos CSVs versionados no GitHub.
 
@@ -46,7 +46,7 @@ Se preferir disparar manualmente pelo terminal do contêiner:
 python media_store.py --status
 python media_store.py --retry-failed
 \`\`\`
-Os downloads são limitados a URLs dos CDNs dos marketplaces presentes nos CSVs, sem parâmetros de URL arbitrários, com validação do tipo de arquivo. Imagens e vídeos de terceiros podem estar sujeitos a direitos autorais, termos das plataformas e autorizações para uso publicitário: valide as permissões antes de redistribuí-los.
+Os downloads são limitados às URLs de CDN e aos links TikTok \`/@perfil/video/ID\` presentes nos CSVs, com verificação de formato e tamanho. Não é possível solicitar URLs arbitrárias ao servidor. Imagens e vídeos de terceiros continuam sujeitos a direitos autorais, termos das plataformas e permissões de uso publicitário.
 
 ## Download público imediato
 
