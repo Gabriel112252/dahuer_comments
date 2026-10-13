@@ -12,6 +12,7 @@ import json
 import logging
 import os
 import re
+import subprocess
 import tempfile
 import threading
 import time
@@ -46,6 +47,7 @@ _errors_lock = threading.Lock()
 _started_lock = threading.Lock()
 _started = False
 _active_downloads = threading.BoundedSemaphore(3)
+_active_posters = threading.BoundedSemaphore(2)
 
 
 def split_links(value: str) -> list[str]:
@@ -147,6 +149,58 @@ def content_type(key: str) -> str | None:
         return None
     with path.open("rb") as stream:
         return detect_media(stream.read(16))
+
+
+def poster_path(key: str) -> Path:
+    """JPEG leve armazenado junto ao vídeo no volume persistente."""
+    return MEDIA_DIR / (file_path(key).name + ".poster.jpg")
+
+
+def ensure_video_poster(key: str) -> Path | None:
+    """Extrai um quadro com FFmpeg apenas de um vídeo já armazenado."""
+    item = manifest().get(key)
+    if item is None or item["tipo"] != "video" or not present(key):
+        return None
+    poster = poster_path(key)
+    if poster.is_file() and poster.stat().st_size > 0:
+        return poster
+    with _locks_guard:
+        lock = _download_locks.setdefault(key, threading.Lock())
+    with lock:
+        if poster.is_file() and poster.stat().st_size > 0:
+            return poster
+        if content_type(key) not in ("video/mp4", "video/webm"):
+            return None
+        if not _active_posters.acquire(timeout=3):
+            return None
+        temporary = None
+        try:
+            with tempfile.NamedTemporaryFile(dir=MEDIA_DIR, prefix=".poster-",
+                                             suffix=".jpg", delete=False) as handle:
+                temporary = Path(handle.name)
+            subprocess.run(
+                ["ffmpeg", "-hide_banner", "-loglevel", "error", "-nostdin",
+                 "-ss", "0.25", "-i", str(file_path(key)),
+                 "-frames:v", "1", "-vf", "scale=480:-2:force_original_aspect_ratio=decrease",
+                 "-q:v", "4", "-y", str(temporary)],
+                timeout=9, check=True, stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            )
+            if not temporary.is_file() or temporary.stat().st_size < 100:
+                return None
+            with temporary.open("rb") as output:
+                if detect_media(output.read(16)) != "image/jpeg":
+                    return None
+            os.replace(temporary, poster)
+            return poster
+        except (OSError, subprocess.TimeoutExpired, subprocess.CalledProcessError) as exc:
+            LOGGER.warning("Não foi possível gerar thumbnail do vídeo %s: %s", key, exc)
+            return None
+        finally:
+            if temporary is not None:
+                temporary.unlink(missing_ok=True)
+            _active_posters.release()
+
 
 
 class SafeRedirectHandler(HTTPRedirectHandler):
