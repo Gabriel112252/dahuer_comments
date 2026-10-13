@@ -57,7 +57,7 @@ def is_video(row: dict) -> bool:
 
 def source_fingerprint(row: dict) -> str:
     return hashlib.sha256("\x1f".join(
-        str(row.get(field) or "") for field in ("canal", "produto", "link", "texto")
+        str(row.get(field) or "").strip() for field in ("canal", "produto", "link", "texto")
     ).encode("utf-8")).hexdigest()[:20]
 
 
