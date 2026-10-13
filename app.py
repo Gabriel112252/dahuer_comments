@@ -115,8 +115,12 @@ def public_comment(comment: dict[str, Any], origin: str) -> dict[str, Any]:
     item["midia_links"] = " | ".join(local_urls)
     item["midias_nao_hospedadas"] = not_direct
     item["midias_info"] = [
-        {"url": origin + "/media/" + media_store.media_key(source),
-         "tipo": media_store.media_kind(source)}
+        {
+            "url": origin + "/media/" + media_store.media_key(source),
+            "tipo": media_store.media_kind(source),
+            "poster_url": (origin + "/media/" + media_store.media_key(source) + "/poster")
+                          if media_store.media_kind(source) == "video" else None,
+        }
         for source in split_media(original)
         if media_store.media_key(source) in media_store.manifest()
     ]
@@ -232,6 +236,26 @@ def collector_status():
 @app.get('/api/v1/media/status', tags=['Mídias'])
 def media_status():
     return media_store.status()
+
+
+@app.get('/media/{media_id}/poster', tags=['Mídias'])
+def video_poster(media_id: str):
+    """Capa JPEG real do vídeo, persistida no volume e servida no mesmo domínio."""
+    video = media_store.manifest().get(media_id)
+    if not video or video["tipo"] != "video":
+        raise HTTPException(status_code=404, detail="Vídeo não encontrado")
+    path = media_store.ensure_video_poster(media_id)
+    if path is None:
+        raise HTTPException(
+            status_code=503,
+            detail="Capa ainda indisponível para este vídeo",
+            headers={"Cache-Control": "no-store", "Retry-After": "180"},
+        )
+    return FileResponse(
+        path, media_type="image/jpeg",
+        headers={"Cache-Control": "public, max-age=31536000, immutable",
+                 "X-Content-Type-Options": "nosniff"},
+    )
 
 
 @app.get('/media/{media_id}', tags=['Mídias'])
