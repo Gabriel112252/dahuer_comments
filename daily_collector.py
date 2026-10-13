@@ -127,14 +127,24 @@ def from_mercadolivre(item: dict, row: dict) -> dict | None:
     if status and status != "published":
         return None
     media = row.get("media") or {}
-    if not isinstance(media, dict):
-        media = {}
-    videos = row.get("videos") or media.get("videos") or []
-    pictures = row.get("pictures") or row.get("photos") or media.get("pictures") or []
+    videos = row.get("videos") or []
+    pictures = row.get("pictures") or row.get("photos") or row.get("images") or []
+    if isinstance(media, dict):
+        videos = videos or media.get("videos") or media.get("video") or []
+        pictures = pictures or media.get("pictures") or media.get("images") or media.get("photos") or []
     if not isinstance(videos, list):
-        videos = []
+        videos = [videos] if videos else []
     if not isinstance(pictures, list):
-        pictures = []
+        pictures = [pictures] if pictures else []
+    if isinstance(media, list):
+        for asset in media:
+            if not isinstance(asset, dict):
+                continue
+            descriptor = str(asset.get("type") or asset.get("mime_type") or asset.get("url") or "").lower()
+            if "video" in descriptor or descriptor.endswith((".mp4", ".webm")):
+                videos.append(asset)
+            else:
+                pictures.append(asset)
     urls = str_media(videos + pictures)
     text = " ".join(p for p in (row.get("title"), row.get("content")) if isinstance(p, str)).strip()
     date = row.get("date_created") or ""
