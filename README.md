@@ -2,6 +2,67 @@
 
 **Painel visual para landing pages já hospedado no Easypanel:** https://workspace-dahuer-comments.yu7gwy.easypanel.host/
 
+## Novas avaliações: coleta diária às 03:00 (São Paulo)
+
+A partir desta versão, o serviço também mantém um banco **SQLite em /app/media/reviews.sqlite3** (o mesmo volume persistente já montado no Easypanel). Os 220 registros dos CSVs continuam sendo o snapshot inicial, e novas avaliações são acrescentadas ao banco sem regravar o GitHub, sem duplicação por ID de avaliação e conteúdo.
+
+- Agendamento diário às **03:00 no fuso America/Sao_Paulo**, com bloqueio por arquivo para impedir duas coletas simultâneas.
+- Busca de novas avaliações **uma fonte de cada vez**, com pausa e limite de páginas/requisições. Não é uma coleta contínua nem garante acesso ao histórico inteiro que a plataforma não expõe.
+- Os comentários mostram **mais recentes primeiro**, usando timestamp da origem quando presente. Datas relativas como "Há 1 mês" ficam com data desconhecida para a ordenação, sem inventar datas.
+- O widget/LP aceita \`com_video=true\` e \`priorizar_video=true\`, além de \`ordem=recentes\` (padrão) ou \`ordem=antigas\`. Mesmo priorizando vídeos, não excluímos as demais avaliações, a menos que se use \`com_video=true\`.
+- Mídias das novas avaliações entram no espelho \`/media/<id>\`. Falhas não impedem de exibir a avaliação; um vídeo não é considerado baixado antes de existir no volume.
+- Consulte \`GET /api/v1/collector/status\` para ver se os canais foram configurados, quantas avaliações novas foram gravadas, a próxima coleta e o último resultado. Sem fonte habilitada, o agendamento não inventa avaliações e reporta \`sem_fontes_ativas\`.
+
+### Habilitar Mercado Livre (API oficial)
+
+A API oficial \`GET /reviews/item/{ITEM_ID}\` exige um token OAuth válido e o **ID do anúncio** \`MLB...\`, não somente a URL do catálogo \`/p/MLB...\` presente no CSV inicial.
+
+No Easypanel, configure as variáveis de ambiente:
+
+\`\`\`text
+DAHUER_ML_ACCESS_TOKEN=<token OAuth valido>
+DAHUER_ML_ITEMS_JSON=[{"produto":"Protetor","item_id":"MLB1234567890","catalog_product_id":"MLB60416809"}]
+\`\`\`
+
+Os IDs acima são **apenas exemplos de formato**, não anúncios Hidrabene verificados. Cadastre os anúncios reais correspondentes aos produtos. Não publique nem envie tokens no repositório ou em chats.
+
+Documentação: https://developers.mercadolivre.com.br/pt_br/opinioes-sobre-um-produto
+
+### Habilitar Shopee (opcional, serviço Apify cobrado à parte)
+
+A Shopee pode bloquear acessos diretos a avaliações de produtos. Como alternativa, a integração opcional utiliza o ator \`memo23/shopee-reviews-scraper\` do Apify, que informa IDs estáveis, texto, data, fotos e vídeos. As URLs de produtos Shopee são descobertas **automaticamente nos CSVs existentes**; não precisam de cadastro manual adicional.
+
+\`\`\`text
+DAHUER_APIFY_TOKEN=<token Apify>
+DAHUER_APIFY_MAX_USD=1.5
+DAHUER_COLLECTOR_DAYS_BACK=7
+\`\`\`
+
+O máximo por execução e os custos do ator podem variar. **Nenhum uso pago é iniciado sem que a variável do token Apify seja configurada.** A API envia um limite de orçamento de até US$1,50 por execução por padrão, quando o provedor oferece esse controle; verifique a cobrança real no painel Apify. A integração cobre avaliações que o ator conseguir obter, não garante a totalidade histórica.
+
+Referência do ator: https://apify.com/memo23/shopee-reviews-scraper
+
+### Amazon e TikTok
+
+Ainda **não possuem conector de descoberta automática** ativo neste projeto. Vídeos TikTok previamente catalogados continuam no importador com \`yt-dlp\`, mas essa biblioteca **não descobre avaliações novas de produtos**. Para Amazon e TikTok Shop, precisamos validar fontes autorizadas e cobertura Brasil antes de ativar rotina automática.
+
+### Operação e limites
+
+\`\`\`text
+DAHUER_COLLECTOR_ENABLED=true
+DAHUER_COLLECTOR_MAX_PER_SOURCE=300
+DAHUER_COLLECTOR_DELAY=1.25
+\`\`\`
+
+O limite padrão do ator Shopee é 100 avaliações por produto por execução; o Mercado Livre consulta até 300 por anúncio. Isso evita carga ilimitada e deve ser ajustado conforme custo e cobertura. Para rodar um teste pontual **depois de configurar as credenciais**, execute no contêiner:
+
+\`\`\`bash
+python daily_collector.py --status
+python daily_collector.py --once
+\`\`\`
+
+O volume \`/app/media\` precisa ser preservado, incluindo o banco \`reviews.sqlite3\` e, se houver, os arquivos auxiliares \`-wal\`/\`-shm\`. Para migração, faça backup SQLite consistente. Mantenha só uma réplica do serviço, limite chamadas às APIs e cumpra termos das plataformas e direitos dos autores antes de usar as avaliações/mídias em campanhas.
+
 ## Página demonstrativa de produto
 
 Após o deploy no Easypanel, abra **https://workspace-dahuer-comments.yu7gwy.easypanel.host/teste/protetor**.
