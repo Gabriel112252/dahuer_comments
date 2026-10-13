@@ -127,6 +127,16 @@ def root():
     return FileResponse(SITE_DIR / 'index.html', media_type='text/html')
 
 
+@app.get('/teste/protetor', include_in_schema=False)
+def test_page_protetor():
+    """LP demonstrativa usando o widget real e as mídias hospedadas localmente."""
+    return FileResponse(
+        SITE_DIR / 'teste-protetor.html',
+        media_type='text/html',
+        headers={'Cache-Control': 'no-cache', 'X-Content-Type-Options': 'nosniff'},
+    )
+
+
 @app.get('/widget.js', include_in_schema=False)
 def widget():
     return FileResponse(
