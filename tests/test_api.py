@@ -396,7 +396,7 @@ def test_embedded_widget_uses_video_thumbnails_and_attribution():
     assert "data.data.forEach(c => grid.append(drawCard(c, dialog.open)))" in script
     assert "Comprador da Shopee" in script
     assert "Comprador do Mercado Livre" in script
-    assert "Nome não divulgado" in script
+    assert "Nome não informado" in script
 
     review = client.get("/api/v1/comments", params={"canal": "TikTok"}).json()["data"][0]
     video = next(m for m in review["midias_info"] if m["tipo"] == "video")
