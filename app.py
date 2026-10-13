@@ -84,26 +84,21 @@ def read_seed_comments() -> list[dict[str, Any]]:
 
 
 def read_comments() -> list[dict[str, Any]]:
-    """Snapshot do GitHub + novas avaliações SQLite sem reiniciar o contêiner."""
+    """Snapshot GitHub + novas avaliações persistidas sem reiniciar a aplicação."""
     return read_seed_comments() + review_db.extra_reviews()
-
-
-def comment_sort_key(row: dict[str, Any], priorizar_video: bool = False):
-    date = row.get("data_iso") or ""
-    video = bool(row.get("com_video") or review_db.is_video(row))
-    return (int(video), date, row["id"]) if priorizar_video else (date, int(video), row["id"])
 
 
 def sort_comments(items: list[dict[str, Any]], ordem: str = "recentes",
                   priorizar_video: bool = False) -> list[dict[str, Any]]:
-    if ordem not in ("recentes", "antigas"):
-        raise ValueError("ordem inválida")
     if ordem == "antigas":
         return sorted(items, key=lambda row: (row.get("data_iso") is None,
-                                              row.get("data_iso") or "",
-                                              row["id"]))
-    return sorted(items, key=lambda row: comment_sort_key(row, priorizar_video),
-                  reverse=True)
+                                              row.get("data_iso") or "", row["id"]))
+    if priorizar_video:
+        return sorted(items, key=lambda row: (
+            int(bool(row.get("com_video") or review_db.is_video(row))),
+            row.get("data_iso") or "", row["id"]), reverse=True)
+    return sorted(items, key=lambda row: (
+        row.get("data_iso") or "", row["id"]), reverse=True)
 
 
 def request_origin(request: Request) -> str:
@@ -152,7 +147,7 @@ def filter_comments(
         items = [x for x in items if bool(x['midias']) == com_midia]
     if com_video is not None:
         items = [x for x in items if bool(x.get('com_video') or review_db.is_video(x)) == com_video]
-    return sort_comments(items, ordem=ordem, priorizar_video=priorizar_video)
+    return sort_comments(items, ordem, priorizar_video)
 
 
 @app.get('/', include_in_schema=False)
@@ -197,7 +192,9 @@ def comments(
     q: str | None = Query(None, max_length=200, description='Busca textual'),
     com_midia: bool | None = None,
     com_video: bool | None = None,
-    ordem: str = Query('recentes', pattern='^(recentes|antigas)
+    ordem: str = Query('recentes', pattern='^(recentes|antigas)$'),
+    priorizar_video: bool = False,
+    page: int = Query(1, ge=1),
     per_page: int = Query(20, ge=1, le=100),
 ):
     filtered = filter_comments(canal, produto, nota, q, com_midia, com_video, ordem, priorizar_video)
@@ -284,235 +281,11 @@ def download(
     produto: str | None = None,
     nota: int | None = Query(None, ge=1, le=5),
     q: str | None = Query(None, max_length=200),
-    ordem: str = Query('recentes', pattern='^(recentes|antigas)
-    if formato == 'json':
-        return Response(
-            content=json.dumps(data, ensure_ascii=False),
-            media_type='application/json; charset=utf-8',
-            headers={'Content-Disposition': 'attachment; filename="dahuer_comments.json"'},
-        )
-    s = io.StringIO(newline='')
-    writer = csv.DictWriter(s, fieldnames=FIELDS, delimiter=';', lineterminator='\r\n')
-    writer.writeheader()
-    for item in data:
-        # Proteção contra CSV formula injection em planilhas.
-        writer.writerow({k: ("'" + str(item[k]) if str(item[k]).lstrip().startswith(('=', '+', '-', '@')) else item[k] or '') for k in FIELDS})
-    return Response(
-        content='\ufeff' + s.getvalue(),
-        media_type='text/csv; charset=utf-8',
-        headers={'Content-Disposition': 'attachment; filename="dahuer_comments.csv"'},
-    )
-),
-    priorizar_video: bool = False,
-    page: int = Query(1, ge=1),
-    per_page: int = Query(20, ge=1, le=100),
-):
-    filtered = filter_comments(canal, produto, nota, q, com_midia)
-    offset = (page - 1) * per_page
-    return {'total': len(filtered), 'page': page, 'per_page': per_page,
-            'total_pages': math.ceil(len(filtered) / per_page),
-            'data': [public_comment(c, request_origin(request)) for c in filtered[offset:offset + per_page]]}
-
-
-@app.get('/api/v1/comments/{comment_id}', tags=['Avaliações'])
-def comment_by_id(comment_id: str, request: Request):
-    result = next((c for c in read_comments() if c['id'] == comment_id), None)
-    return public_comment(result, request_origin(request)) if result else _not_found()
-
-
-def _not_found():
-    raise HTTPException(status_code=404, detail='Avaliação não encontrada')
-
-
-@app.get('/api/v1/channels', tags=['Catálogo'])
-def channels():
-    return [{'canal': canal, 'total': total} for canal, total in sorted(Counter(x['canal'] for x in read_comments()).items())]
-
-
-@app.get('/api/v1/products', tags=['Catálogo'])
-def products():
-    return [{'produto': produto, 'total': total} for produto, total in sorted(Counter(x['produto'] for x in read_comments()).items())]
-
-
-@app.get('/api/v1/media/status', tags=['Mídias'])
-def media_status():
-    return media_store.status()
-
-
-@app.get('/media/{media_id}', tags=['Mídias'])
-def hosted_media(media_id: str):
-    entry = media_store.manifest().get(media_id)
-    if not entry:
-        raise HTTPException(status_code=404, detail="Mídia não encontrada")
-    # TikTok é importado pelo job de fundo; requests das LPs não ficam
-    # aguardando extração demorada nem iniciam downloads concorrentes.
-    if media_store.is_tiktok_video(entry["url"]) and not media_store.present(media_id):
-        raise HTTPException(
-            status_code=503,
-            detail="Vídeo TikTok em processamento ou indisponível",
-            headers={"Retry-After": "300", "Cache-Control": "no-store"},
-        )
-    if not media_store.ensure_downloaded(media_id):
-        raise HTTPException(
-            status_code=503,
-            detail="Mídia ainda não disponível no armazenamento local",
-            headers={"Retry-After": "120", "Cache-Control": "no-store"},
-        )
-    mime = media_store.content_type(media_id)
-    if mime is None:
-        raise HTTPException(status_code=503, detail="Formato local indisponível")
-    return FileResponse(
-        media_store.file_path(media_id), media_type=mime,
-        headers={"Cache-Control": "public, max-age=31536000, immutable",
-                 "X-Content-Type-Options": "nosniff"},
-    )
-
-
-@app.get('/api/v1/stats', tags=['Catálogo'])
-def stats():
-    data = read_comments()
-    notes = [x['nota'] for x in data if x['nota'] is not None]
-    return {'total': len(data), 'com_nota': len(notes), 'nota_media': round(sum(notes) / len(notes), 2) if notes else None,
-            'por_canal': dict(sorted(Counter(x['canal'] for x in data).items())),
-            'por_produto': dict(sorted(Counter(x['produto'] for x in data).items())),
-            'com_links_midia': sum(bool(x['midias']) for x in data)}
-
-
-@app.get('/api/v1/download', tags=['Exportação'])
-def download(
-    request: Request,
-    formato: str = Query('csv', pattern='^(csv|json)$'),
-    canal: str | None = None,
-    produto: str | None = None,
-    nota: int | None = Query(None, ge=1, le=5),
-    q: str | None = Query(None, max_length=200),
-):
-    data = [public_comment(c, request_origin(request)) for c in filter_comments(canal, produto, nota, q)]
-    if formato == 'json':
-        return Response(
-            content=json.dumps(data, ensure_ascii=False),
-            media_type='application/json; charset=utf-8',
-            headers={'Content-Disposition': 'attachment; filename="dahuer_comments.json"'},
-        )
-    s = io.StringIO(newline='')
-    writer = csv.DictWriter(s, fieldnames=FIELDS, delimiter=';', lineterminator='\r\n')
-    writer.writeheader()
-    for item in data:
-        # Proteção contra CSV formula injection em planilhas.
-        writer.writerow({k: ("'" + str(item[k]) if str(item[k]).lstrip().startswith(('=', '+', '-', '@')) else item[k] or '') for k in FIELDS})
-    return Response(
-        content='\ufeff' + s.getvalue(),
-        media_type='text/csv; charset=utf-8',
-        headers={'Content-Disposition': 'attachment; filename="dahuer_comments.csv"'},
-    )
-),
+    ordem: str = Query('recentes', pattern='^(recentes|antigas)$'),
     priorizar_video: bool = False,
 ):
     data = [public_comment(c, request_origin(request)) for c in filter_comments(canal, produto, nota, q,
                                                                                  ordem=ordem, priorizar_video=priorizar_video)]
-    if formato == 'json':
-        return Response(
-            content=json.dumps(data, ensure_ascii=False),
-            media_type='application/json; charset=utf-8',
-            headers={'Content-Disposition': 'attachment; filename="dahuer_comments.json"'},
-        )
-    s = io.StringIO(newline='')
-    writer = csv.DictWriter(s, fieldnames=FIELDS, delimiter=';', lineterminator='\r\n')
-    writer.writeheader()
-    for item in data:
-        # Proteção contra CSV formula injection em planilhas.
-        writer.writerow({k: ("'" + str(item[k]) if str(item[k]).lstrip().startswith(('=', '+', '-', '@')) else item[k] or '') for k in FIELDS})
-    return Response(
-        content='\ufeff' + s.getvalue(),
-        media_type='text/csv; charset=utf-8',
-        headers={'Content-Disposition': 'attachment; filename="dahuer_comments.csv"'},
-    )
-),
-    priorizar_video: bool = False,
-    page: int = Query(1, ge=1),
-    per_page: int = Query(20, ge=1, le=100),
-):
-    filtered = filter_comments(canal, produto, nota, q, com_midia)
-    offset = (page - 1) * per_page
-    return {'total': len(filtered), 'page': page, 'per_page': per_page,
-            'total_pages': math.ceil(len(filtered) / per_page),
-            'data': [public_comment(c, request_origin(request)) for c in filtered[offset:offset + per_page]]}
-
-
-@app.get('/api/v1/comments/{comment_id}', tags=['Avaliações'])
-def comment_by_id(comment_id: str, request: Request):
-    result = next((c for c in read_comments() if c['id'] == comment_id), None)
-    return public_comment(result, request_origin(request)) if result else _not_found()
-
-
-def _not_found():
-    raise HTTPException(status_code=404, detail='Avaliação não encontrada')
-
-
-@app.get('/api/v1/channels', tags=['Catálogo'])
-def channels():
-    return [{'canal': canal, 'total': total} for canal, total in sorted(Counter(x['canal'] for x in read_comments()).items())]
-
-
-@app.get('/api/v1/products', tags=['Catálogo'])
-def products():
-    return [{'produto': produto, 'total': total} for produto, total in sorted(Counter(x['produto'] for x in read_comments()).items())]
-
-
-@app.get('/api/v1/media/status', tags=['Mídias'])
-def media_status():
-    return media_store.status()
-
-
-@app.get('/media/{media_id}', tags=['Mídias'])
-def hosted_media(media_id: str):
-    entry = media_store.manifest().get(media_id)
-    if not entry:
-        raise HTTPException(status_code=404, detail="Mídia não encontrada")
-    # TikTok é importado pelo job de fundo; requests das LPs não ficam
-    # aguardando extração demorada nem iniciam downloads concorrentes.
-    if media_store.is_tiktok_video(entry["url"]) and not media_store.present(media_id):
-        raise HTTPException(
-            status_code=503,
-            detail="Vídeo TikTok em processamento ou indisponível",
-            headers={"Retry-After": "300", "Cache-Control": "no-store"},
-        )
-    if not media_store.ensure_downloaded(media_id):
-        raise HTTPException(
-            status_code=503,
-            detail="Mídia ainda não disponível no armazenamento local",
-            headers={"Retry-After": "120", "Cache-Control": "no-store"},
-        )
-    mime = media_store.content_type(media_id)
-    if mime is None:
-        raise HTTPException(status_code=503, detail="Formato local indisponível")
-    return FileResponse(
-        media_store.file_path(media_id), media_type=mime,
-        headers={"Cache-Control": "public, max-age=31536000, immutable",
-                 "X-Content-Type-Options": "nosniff"},
-    )
-
-
-@app.get('/api/v1/stats', tags=['Catálogo'])
-def stats():
-    data = read_comments()
-    notes = [x['nota'] for x in data if x['nota'] is not None]
-    return {'total': len(data), 'com_nota': len(notes), 'nota_media': round(sum(notes) / len(notes), 2) if notes else None,
-            'por_canal': dict(sorted(Counter(x['canal'] for x in data).items())),
-            'por_produto': dict(sorted(Counter(x['produto'] for x in data).items())),
-            'com_links_midia': sum(bool(x['midias']) for x in data)}
-
-
-@app.get('/api/v1/download', tags=['Exportação'])
-def download(
-    request: Request,
-    formato: str = Query('csv', pattern='^(csv|json)$'),
-    canal: str | None = None,
-    produto: str | None = None,
-    nota: int | None = Query(None, ge=1, le=5),
-    q: str | None = Query(None, max_length=200),
-):
-    data = [public_comment(c, request_origin(request)) for c in filter_comments(canal, produto, nota, q)]
     if formato == 'json':
         return Response(
             content=json.dumps(data, ensure_ascii=False),
