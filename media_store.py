@@ -22,6 +22,7 @@ from urllib.parse import urlsplit
 from urllib.request import HTTPRedirectHandler, Request, build_opener
 
 from tiktok_media import fetch_tiktok_video, is_tiktok_video
+import review_db
 
 BASE_DIR = Path(__file__).resolve().parent
 DATA_DIR = Path(os.getenv("DAHUER_DATA_DIR", str(BASE_DIR / "data")))
@@ -89,6 +90,13 @@ def manifest() -> dict[str, dict[str, str]]:
                     if allowed_url(url) or is_tiktok_video(url):
                         key = media_key(url)
                         mapping[key] = {"url": url, "tipo": media_kind(url), "canal": row.get("canal", "")}
+    # Novas avaliações ficam no volume e não nos CSVs do repositório.
+    for row in review_db.extra_reviews():
+        for url in split_links(row.get("midia_links", "")):
+            if allowed_url(url) or is_tiktok_video(url):
+                key = media_key(url)
+                mapping[key] = {"url": url, "tipo": media_kind(url),
+                                "canal": row.get("canal", "")}
     return mapping
 
 
