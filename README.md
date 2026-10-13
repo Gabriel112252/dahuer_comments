@@ -32,6 +32,17 @@ A API agora transforma as URLs diretas de fotos e vídeos dos marketplaces em **
 - O download de cada mídia depende de sua disponibilidade e das permissões do servidor remoto; uma referência não comprova que o arquivo foi importado.
 - O espelho não armazena avaliações novas automaticamente: a base vem dos CSVs versionados no GitHub.
 
+### TikTok: erro "Unexpected response from webpage request"
+
+É um problema relatado em setembro/2026 no extrator do TikTok ([yt-dlp #17604](https://github.com/yt-dlp/yt-dlp/issues/17604)). Para mitigar:
+
+- `curl_cffi==0.16.0` (versão compatível com a correção publicada);
+- tenta User-Agent Chrome 145 e, se falhar, Firefox 155;
+- prioriza MP4/H.264 para reprodução nas LPs;
+- ao atualizar a estratégia, as falhas TikTok anteriores são tentadas novamente no primeiro ciclo de importação após o deploy, sem apagar as mídias já baixadas.
+
+Não garante sucesso em todos os links: o TikTok pode bloquear IPs de servidores, exigir autenticação ou remover o vídeo. O contador `baixados_tiktok` confirma o sucesso real após o deploy.
+
 ### Configuração obrigatória no Easypanel
 
 1. No serviço \`dahuer-comments\`, configure **Volume / Armazenamento persistente** montado em **\`/app/media\`**. Faça isso *antes* de executar o importador, senão os downloads podem se perder no próximo deploy. Para deploy com Docker Compose, há volume nomeado \`dahuer-media:/app/media\`.
