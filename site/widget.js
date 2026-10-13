@@ -83,8 +83,14 @@
     const author = (c.autor || '').trim();
     const platform = (c.canal || 'Marketplace').trim();
     const normalizedAuthor = author.toLocaleLowerCase('pt-BR');
-    const anonymous = !author || /^(cliente(?:\\s+\\d+)?|anônimo|anonimo|anonymous|usuário|usuario|sem nome|não informado|nao informado)$/i.test(normalizedAuthor);
-    const anonymousLabel = platform === 'TikTok' ? 'Autor no TikTok' : 'Comprador da ' + platform;
+    const anonymous = !author || /^(cliente(?:\s+\d+)?|anônimo|anonimo|anonymous|usuário|usuario|sem nome|não informado|nao informado)$/i.test(normalizedAuthor);
+    const anonymousNames = {
+      'Shopee': 'Comprador da Shopee',
+      'Mercado Livre': 'Comprador do Mercado Livre',
+      'Amazon': 'Comprador da Amazon',
+      'TikTok': 'Autor no TikTok'
+    };
+    const anonymousLabel = anonymousNames[platform] || 'Autor não identificado';
     const initial = anonymous ? platform.charAt(0).toUpperCase() : author.charAt(0).toUpperCase();
     const avatar = el('span', 'dc-avatar' + (anonymous ? ' dc-avatar-platform' : ''), initial);
     const meta = el('div', 'dc-person-meta');
@@ -191,9 +197,9 @@
       if (e.key === 'Tab' && !modal.hidden) {
         const focusables = [...panel.querySelectorAll('button, a[href], video[controls]')];
         const first = focusables[0], last = focusables[focusables.length - 1];
-        if (e.shiftKey && document.activeElement === first) {
+        if (e.shiftKey && shadow.activeElement === first) {
           e.preventDefault(); last.focus();
-        } else if (!e.shiftKey && document.activeElement === last) {
+        } else if (!e.shiftKey && shadow.activeElement === last) {
           e.preventDefault(); first.focus();
         }
       }
