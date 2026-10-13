@@ -65,6 +65,10 @@ python daily_collector.py --backfill
 
 O volume \`/app/media\` precisa ser preservado, incluindo o banco \`reviews.sqlite3\` e, se houver, os arquivos auxiliares \`-wal\`/\`-shm\`. Para migração, faça backup SQLite consistente. Mantenha só uma réplica do serviço, limite chamadas às APIs e cumpra termos das plataformas e direitos dos autores antes de usar as avaliações/mídias em campanhas.
 
+## Fotos: clique abre a própria imagem
+
+Fotos nos cards do widget não navegam para Shopee/Mercado Livre/Amazon. Ao clicar, a foto é ampliada em uma janela sobre a LP, carregada de `/media/<id>` no nosso domínio. A janela fecha no botão, pelo fundo ou com Esc. **A publicação original só abre quando o visitante clicar em "Ver avaliação original ↗"**. Nenhuma mudança necessária no snippet já incorporado.
+
 ## Novo player visual e autores anônimos
 
 Os vídeos nas LPs aparecem agora como **miniaturas com quadro real extraído via FFmpeg**, com botão central para assistir. O clique abre uma janela ampliada com controles nativos de reprodução; ao fechar, a reprodução é interrompida. As capas ficam persistidas no volume `/app/media` e são servidas via `GET /media/{id}/poster`.
