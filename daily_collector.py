@@ -155,7 +155,7 @@ def from_mercadolivre(item: dict, row: dict) -> dict | None:
     }
 
 
-def run_mercadolivre() -> tuple[list[dict], dict]:
+def run_mercadolivre(*, backfill: bool = False) -> tuple[list[dict], dict]:
     token = os.getenv("DAHUER_ML_ACCESS_TOKEN", "")
     items = ml_items()
     if not token or not items:
@@ -163,12 +163,13 @@ def run_mercadolivre() -> tuple[list[dict], dict]:
     all_reviews = []
     ok = 0
     errors = []
+    max_reviews = min(3000, MAX_PER_SOURCE if not backfill else max(MAX_PER_SOURCE, int(os.getenv('DAHUER_ML_BACKFILL_MAX', '1000'))))
     for item in items:
         collected = []
         offset = 0
         try:
-            while offset < MAX_PER_SOURCE:
-                query = {"limit": min(25, MAX_PER_SOURCE - offset), "offset": offset}
+            while offset < max_reviews:
+                query = {"limit": min(25, max_reviews - offset), "offset": offset}
                 catalog = item["catalog_product_id"]
                 if catalog:
                     if not ITEM_ID.fullmatch(catalog):
@@ -230,20 +231,22 @@ def from_shopee(row: dict, products: dict[str, dict]) -> dict | None:
     }
 
 
-def run_shopee() -> tuple[list[dict], dict]:
+def run_shopee(*, backfill: bool = False) -> tuple[list[dict], dict]:
     token = os.getenv("DAHUER_APIFY_TOKEN", "")
     products = source_shopee_products()
     if not token or not products:
         return [], {"estado": "sem_configuracao", "produtos": len(products)}
     # Serviço externo opcional e cobrado à parte; limitar volume e custo da execução.
     actor = "memo23~shopee-reviews-scraper"
-    limit = max(1, min(MAX_PER_SOURCE, 100))
-    budget = max(0.1, min(10.0, float(os.getenv("DAHUER_APIFY_MAX_USD", "1.5"))))
+    limit = max(1, min(int(os.getenv("DAHUER_SHOPEE_BACKFILL_MAX", "500")), 5000)) if backfill else max(1, min(MAX_PER_SOURCE, 100))
+    budget = max(0.1, min(25.0, float(
+        os.getenv("DAHUER_APIFY_BACKFILL_MAX_USD", "5.0") if backfill
+        else os.getenv("DAHUER_APIFY_MAX_USD", "1.5"))))
     product_map = {p["id"]: p for p in products}
     payload = {
         "startUrls": [p["url"] for p in products],
         "maxReviewsPerShop": limit,
-        "reviewsSince": f"{DAYS_BACK} days",
+        **({} if backfill else {"reviewsSince": f"{DAYS_BACK} days"}),
         "onlyWithText": False,
         "onlyWithMedia": False,
         "includeSummary": False,
@@ -273,7 +276,7 @@ def base_fingerprints() -> set[str]:
     return result
 
 
-def collect_once() -> dict:
+def collect_once(*, backfill: bool = False) -> dict:
     """Lê canais em sequência, grava novas avaliações e sinaliza novas mídias."""
     ROOT.mkdir(parents=True, exist_ok=True)
     with (ROOT / ".review-collector.lock").open("a+b") as lock:
@@ -287,7 +290,7 @@ def collect_once() -> dict:
             known = base_fingerprints()
             for name, collector in (("Mercado Livre", run_mercadolivre), ("Shopee", run_shopee)):
                 try:
-                    records, result = collector()
+                    records, result = collector(backfill=backfill)
                     new = review_db.insert_reviews(records, known)
                     detail["canais"][name] = {**result, "novas": new}
                     detail["novas"] += new
@@ -369,12 +372,13 @@ def start() -> None:
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--once", action="store_true", help="Roda imediatamente uma coleta de teste")
+    parser.add_argument("--once", action="store_true", help="Roda imediatamente uma coleta incremental")
+    parser.add_argument("--backfill", action="store_true", help="Coleta histórico disponível; pode gerar custos Apify")
     parser.add_argument("--status", action="store_true", help="Mostra configuração e estado")
     args = parser.parse_args()
     logging.basicConfig(level=logging.INFO)
-    if args.once:
-        result = collect_once()
+    if args.once or args.backfill:
+        result = collect_once(backfill=args.backfill)
     else:
         result = status()
     print(json.dumps(result, ensure_ascii=False, indent=2))
