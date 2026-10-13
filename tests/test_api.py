@@ -238,3 +238,28 @@ def test_old_tiktok_error_is_retried_when_strategy_changes(monkeypatch, tmp_path
     assert media_store.ensure_downloaded(key)
     assert attempts == [key]
     assert key not in media_store.get_errors()
+
+
+def test_product_test_lp_uses_live_widget():
+    page = client.get('/teste/protetor')
+    assert page.status_code == 200
+    assert 'text/html' in page.headers['content-type']
+    assert 'HIDRABENE' in page.text
+    assert '<script src="/widget.js"></script>' in page.text
+    assert "produto: 'Protetor'" in page.text
+    assert "DahuerComments.mount('reviews-widget',options())" in page.text
+    assert '/api/v1/media/status' in page.text
+    assert 'id="channel"' in page.text
+    assert 'id="only-media"' in page.text
+    assert 'href="/teste/protetor"' in client.get('/').text
+
+
+def test_product_test_lp_has_real_reviews():
+    result = client.get('/api/v1/comments', params={
+        'produto': 'Protetor', 'per_page': 100,
+    }).json()
+    assert result['total'] == 38
+    assert set(c['canal'] for c in result['data']) == {
+        'TikTok', 'Shopee', 'Mercado Livre', 'Amazon',
+    }
+    assert any(c['midias_info'] for c in result['data'])
