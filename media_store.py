@@ -1,7 +1,7 @@
 """Importação e hospedagem de mídias referenciadas nos CSVs.
 
 Só baixa URLs HTTPS de hosts CDN explicitamente permitidos e já presentes nos CSVs.
-Páginas TikTok não são links diretos de mídia e são excluídas do espelhamento.
+Páginas públicas TikTok no formato /@perfil/video/ID são importadas via yt-dlp.
 """
 from __future__ import annotations
 
@@ -20,6 +20,8 @@ from pathlib import Path
 from urllib.error import HTTPError, URLError
 from urllib.parse import urlsplit
 from urllib.request import HTTPRedirectHandler, Request, build_opener
+
+from tiktok_media import fetch_tiktok_video, is_tiktok_video
 
 BASE_DIR = Path(__file__).resolve().parent
 DATA_DIR = Path(os.getenv("DAHUER_DATA_DIR", str(BASE_DIR / "data")))
@@ -71,7 +73,7 @@ def media_kind(url: str) -> str:
     parts = urlsplit(url)
     host = (parts.hostname or "").lower()
     path = parts.path.lower()
-    if path.endswith((".mp4", ".webm", ".mov")) or ".vod." in host or host.startswith("video-"):
+    if is_tiktok_video(url) or path.endswith((".mp4", ".webm", ".mov")) or ".vod." in host or host.startswith("video-"):
         return "video"
     return "image"
 
@@ -83,7 +85,7 @@ def manifest() -> dict[str, dict[str, str]]:
         with (DATA_DIR / filename).open(encoding="utf-8-sig", newline="") as stream:
             for row in csv.DictReader(stream, delimiter=";"):
                 for url in split_links(row.get("midia_links", "")):
-                    if allowed_url(url):
+                    if allowed_url(url) or is_tiktok_video(url):
                         key = media_key(url)
                         mapping[key] = {"url": url, "tipo": media_kind(url), "canal": row.get("canal", "")}
     return mapping
@@ -183,6 +185,9 @@ def clear_error(key: str) -> None:
 def _fetch(key: str) -> None:
     info = manifest()[key]
     url = info["url"]
+    if is_tiktok_video(url):
+        fetch_tiktok_video(url, file_path(key), MAX_VIDEO_BYTES)
+        return
     request = Request(url, headers={
         "User-Agent": "Mozilla/5.0 (compatible; DahuerComments/1.0; media-cache)",
         "Accept": "image/jpeg,image/png,image/webp,video/mp4,video/webm,*/*;q=0.5",
@@ -259,15 +264,20 @@ def status() -> dict:
     sizes = sum(file_path(key).stat().st_size for key in done)
     total = len(mapping)
     failed = sum(1 for key in mapping if key in errors and key not in done)
+    tiktok_keys = [k for k, info in mapping.items() if is_tiktok_video(info["url"])]
+    tiktok_downloaded = sum(key in done for key in tiktok_keys)
     return {
         "total_importaveis": total,
+        "total_tiktok": len(tiktok_keys),
+        "baixados_tiktok": tiktok_downloaded,
+        "pendentes_tiktok": len(tiktok_keys) - tiktok_downloaded,
         "baixados": len(done),
         "pendentes": total - len(done),
         "falhas_registradas": failed,
         "bytes_armazenados": sizes,
         "diretorio": str(MEDIA_DIR),
         "importacao_automatica": os.getenv("DAHUER_MEDIA_AUTO_SYNC", "true").lower() in ("1", "true", "yes"),
-        "observacao": "Links TikTok para páginas de vídeos não são arquivos diretos e não entram no espelho.",
+        "observacao": "Vídeos TikTok são extraídos com yt-dlp em segundo plano; alguns podem ser bloqueados ou indisponíveis.",
     }
 
 
